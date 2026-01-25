@@ -160,8 +160,8 @@ func main() {
 		YouTube:   handlers.NewYouTubeHandler(youtubeClient),
 	}
 
-	// Setup routes
-	handler := api.Routes(h)
+	// Setup routes with JWT middleware
+	handler := api.Routes(h, jwtService)
 
 	// Create and start server
 	server := api.New(cfg.Server, handler)

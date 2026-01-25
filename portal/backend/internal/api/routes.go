@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"kit.workmate/live-portal/internal/api/handlers"
+	"kit.workmate/live-portal/internal/auth"
 )
 
 type Handlers struct {
@@ -19,7 +20,7 @@ type Handlers struct {
 	YouTube   *handlers.YouTubeHandler
 }
 
-func Routes(h *Handlers) http.Handler {
+func Routes(h *Handlers, jwtService *auth.JWTService) http.Handler {
 	r := chi.NewRouter()
 
 	// Middleware
@@ -56,23 +57,33 @@ func Routes(h *Handlers) http.Handler {
 		})
 	})
 
-	// API routes
+	// Public API routes (no auth required)
 	r.Route("/api", func(r chi.Router) {
-		// Auth endpoints
+		// Auth endpoints (login is public, logout/verify are protected)
 		r.Route("/auth", func(r chi.Router) {
 			r.Post("/login", h.Auth.Login)
+			r.Get("/verify", h.Auth.Verify) // Public - for frontend token check
+		})
+	})
+
+	// Protected API routes (JWT required)
+	r.Route("/api", func(r chi.Router) {
+		// Apply JWT middleware to all routes in this group
+		r.Use(auth.Middleware(jwtService))
+
+		// Protected auth endpoints
+		r.Route("/auth", func(r chi.Router) {
 			r.Post("/logout", h.Auth.Logout)
-			r.Get("/verify", h.Auth.Verify)
 		})
 
-		// Agent proxy endpoints (Phase 2)
+		// Agent proxy endpoints
 		r.Route("/agent", func(r chi.Router) {
 			r.Get("/status", h.Agent.GetStatus)
 			r.Get("/capabilities", h.Agent.GetCapabilities)
 			r.Get("/info", h.Agent.GetInfo)
 		})
 
-		// OBS control endpoints (Phase 3)
+		// OBS control endpoints
 		r.Route("/obs", func(r chi.Router) {
 			r.Get("/status", h.OBS.GetStatus)
 			r.Get("/scenes", h.OBS.GetScenes)
@@ -91,7 +102,7 @@ func Routes(h *Handlers) http.Handler {
 			r.Post("/recording/resume", h.OBS.ResumeRecording)
 		})
 
-		// Twitch endpoints (Phase 4)
+		// Twitch endpoints
 		r.Route("/twitch", func(r chi.Router) {
 			r.Get("/status", h.Twitch.GetStatus)
 			r.Get("/stats", h.Twitch.GetStats)
@@ -106,8 +117,8 @@ func Routes(h *Handlers) http.Handler {
 		})
 	})
 
-	// WebSocket endpoint (Phase 2)
-	r.Get("/ws", h.WebSocket.HandleWebSocket)
+	// WebSocket endpoint (protected with query param auth)
+	r.With(auth.WebSocketMiddleware(jwtService)).Get("/ws", h.WebSocket.HandleWebSocket)
 
 	return r
 }

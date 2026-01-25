@@ -1,22 +1,23 @@
 import type { YouTubeStatus, StreamStats, UpdateStreamRequest } from '@/types/youtube'
+import { authFetch } from '@/lib/api'
 
-const API_BASE = 'http://localhost:8080'
+const API_BASE = '/api/youtube'
 
 export const youtubeAPI = {
   async getStatus(): Promise<YouTubeStatus> {
-    const res = await fetch(`${API_BASE}/api/youtube/status`)
+    const res = await authFetch(`${API_BASE}/status`)
     if (!res.ok) throw new Error('Failed to fetch YouTube status')
     return res.json()
   },
 
   async getStats(): Promise<StreamStats> {
-    const res = await fetch(`${API_BASE}/api/youtube/stats`)
+    const res = await authFetch(`${API_BASE}/stats`)
     if (!res.ok) throw new Error('Failed to fetch YouTube stats')
     return res.json()
   },
 
   async updateStream(data: UpdateStreamRequest): Promise<void> {
-    const res = await fetch(`${API_BASE}/api/youtube/stream`, {
+    const res = await authFetch(`${API_BASE}/stream`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),

@@ -3,6 +3,7 @@ import type { OBSEvent } from '@/types/obs'
 import type { ChatMessage as TwitchChatMessage, TwitchEvent } from '@/types/twitch'
 import type { ChatMessage as YouTubeChatMessage } from '@/types/youtube'
 import { useAgentStore } from '@/store/agentStore'
+import { useAuthStore } from '@/store/authStore'
 import { useOBSStore } from '@/store/obsStore'
 import { useTwitchStore } from '@/store/twitchStore'
 import { useYouTubeStore } from '@/store/youtubeStore'
@@ -20,7 +21,17 @@ class WebSocketService {
   connect() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const hostname = window.location.hostname
-    const wsUrl = `${protocol}//${hostname}:8080/ws`
+
+    // Get token from auth store
+    const token = useAuthStore.getState().token
+    if (!token) {
+      console.warn('No auth token available for WebSocket connection')
+    }
+
+    // Add token as query parameter
+    const wsUrl = token
+      ? `${protocol}//${hostname}:8080/ws?token=${encodeURIComponent(token)}`
+      : `${protocol}//${hostname}:8080/ws`
 
     this.ws = new WebSocket(wsUrl)
 
