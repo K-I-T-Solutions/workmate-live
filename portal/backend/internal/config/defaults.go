@@ -23,7 +23,7 @@ func Default() *Config {
 			},
 		},
 		Agent: AgentConfig{
-			URL:             "http://127.0.0.1:9999",
+			URL:             "http://127.0.0.1:8787",
 			PollingInterval: 3 * time.Second,
 			Timeout:         5 * time.Second,
 		},

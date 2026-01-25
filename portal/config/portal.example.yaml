@@ -37,7 +37,7 @@ auth:
 # Agent connection settings
 agent:
   # URL of the workmate-agent API
-  url: "http://127.0.0.1:9999"
+  url: "http://127.0.0.1:8787"
 
   # How often to poll agent for status updates
   polling_interval: 3s
