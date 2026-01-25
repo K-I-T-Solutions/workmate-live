@@ -93,7 +93,7 @@ cd agent
 cp config.example.yaml config.yaml
 
 # Binary builden
-go build -o workmate-live-agent cmd/workmate-agent/main.go
+go build -o workmate-live-agent cmd/workmate-live-agent/main.go
 
 # Agent starten
 ./workmate-live-agent
@@ -113,7 +113,7 @@ cp config/portal.example.yaml config/portal.yaml
 # - API-Keys für Twitch/YouTube
 
 # Binary builden
-go build -o workmate-live-portal cmd/portal/main.go
+go build -o workmate-live-portal cmd/workmate-live-portal/main.go
 
 # Portal starten
 ./workmate-live-portal
@@ -197,13 +197,13 @@ obs:
 ### Agent Entwicklung
 ```bash
 cd agent
-go run cmd/workmate-agent/main.go
+go run cmd/workmate-live-agent/main.go
 ```
 
 ### Portal Backend Entwicklung
 ```bash
 cd portal/backend
-go run cmd/portal/main.go
+go run cmd/workmate-live-portal/main.go
 ```
 
 ### Portal Frontend Entwicklung
