@@ -57,63 +57,47 @@ func Routes(h *Handlers, jwtService *auth.JWTService) http.Handler {
 		})
 	})
 
-	// Public API routes (no auth required)
+	// API routes
 	r.Route("/api", func(r chi.Router) {
-		// Auth endpoints (login is public, logout/verify are protected)
-		r.Route("/auth", func(r chi.Router) {
-			r.Post("/login", h.Auth.Login)
-			r.Get("/verify", h.Auth.Verify) // Public - for frontend token check
-		})
-	})
+		// Public auth endpoints (no JWT required)
+		r.Post("/auth/login", h.Auth.Login)
+		r.Get("/auth/verify", h.Auth.Verify)
 
-	// Protected API routes (JWT required)
-	r.Route("/api", func(r chi.Router) {
-		// Apply JWT middleware to all routes in this group
-		r.Use(auth.Middleware(jwtService))
+		// Protected routes group (JWT required)
+		r.Group(func(r chi.Router) {
+			// Apply JWT middleware to all routes in this group
+			r.Use(auth.Middleware(jwtService))
 
-		// Protected auth endpoints
-		r.Route("/auth", func(r chi.Router) {
-			r.Post("/logout", h.Auth.Logout)
-		})
+			// Protected auth endpoints
+			r.Post("/auth/logout", h.Auth.Logout)
 
-		// Agent proxy endpoints
-		r.Route("/agent", func(r chi.Router) {
-			r.Get("/status", h.Agent.GetStatus)
-			r.Get("/capabilities", h.Agent.GetCapabilities)
-			r.Get("/info", h.Agent.GetInfo)
-		})
+			// Agent proxy endpoints
+			r.Get("/agent/status", h.Agent.GetStatus)
+			r.Get("/agent/capabilities", h.Agent.GetCapabilities)
+			r.Get("/agent/info", h.Agent.GetInfo)
 
-		// OBS control endpoints
-		r.Route("/obs", func(r chi.Router) {
-			r.Get("/status", h.OBS.GetStatus)
-			r.Get("/scenes", h.OBS.GetScenes)
-			r.Post("/scenes/switch", h.OBS.SwitchScene)
-			r.Get("/sources", h.OBS.GetSources)
-			r.Post("/sources/toggle", h.OBS.ToggleSource)
+			// OBS control endpoints
+			r.Get("/obs/status", h.OBS.GetStatus)
+			r.Get("/obs/scenes", h.OBS.GetScenes)
+			r.Post("/obs/scenes/switch", h.OBS.SwitchScene)
+			r.Get("/obs/sources", h.OBS.GetSources)
+			r.Post("/obs/sources/toggle", h.OBS.ToggleSource)
+			r.Post("/obs/streaming/start", h.OBS.StartStreaming)
+			r.Post("/obs/streaming/stop", h.OBS.StopStreaming)
+			r.Post("/obs/recording/start", h.OBS.StartRecording)
+			r.Post("/obs/recording/stop", h.OBS.StopRecording)
+			r.Post("/obs/recording/pause", h.OBS.PauseRecording)
+			r.Post("/obs/recording/resume", h.OBS.ResumeRecording)
 
-			// Streaming control
-			r.Post("/streaming/start", h.OBS.StartStreaming)
-			r.Post("/streaming/stop", h.OBS.StopStreaming)
+			// Twitch endpoints
+			r.Get("/twitch/status", h.Twitch.GetStatus)
+			r.Get("/twitch/stats", h.Twitch.GetStats)
+			r.Patch("/twitch/stream", h.Twitch.UpdateStream)
 
-			// Recording control
-			r.Post("/recording/start", h.OBS.StartRecording)
-			r.Post("/recording/stop", h.OBS.StopRecording)
-			r.Post("/recording/pause", h.OBS.PauseRecording)
-			r.Post("/recording/resume", h.OBS.ResumeRecording)
-		})
-
-		// Twitch endpoints
-		r.Route("/twitch", func(r chi.Router) {
-			r.Get("/status", h.Twitch.GetStatus)
-			r.Get("/stats", h.Twitch.GetStats)
-			r.Patch("/stream", h.Twitch.UpdateStream)
-		})
-
-		// YouTube endpoints
-		r.Route("/youtube", func(r chi.Router) {
-			r.Get("/status", h.YouTube.GetStatus)
-			r.Get("/stats", h.YouTube.GetStats)
-			r.Patch("/stream", h.YouTube.UpdateStream)
+			// YouTube endpoints
+			r.Get("/youtube/status", h.YouTube.GetStatus)
+			r.Get("/youtube/stats", h.YouTube.GetStats)
+			r.Patch("/youtube/stream", h.YouTube.UpdateStream)
 		})
 	})
 
