@@ -2,8 +2,12 @@ import { useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { useAgentStore } from "@/store/agentStore"
+import { useAuthStore } from "@/store/authStore"
 import { wsService } from "@/services/websocket"
+import { authAPI } from "@/services/auth"
+import { Login } from "@/components/Login"
 import { OBSSceneSwitcher } from "@/components/OBSSceneSwitcher"
 import { OBSStreamControl } from "@/components/OBSStreamControl"
 import { OBSRecordControl } from "@/components/OBSRecordControl"
@@ -11,20 +15,41 @@ import { TwitchStats } from "@/components/TwitchStats"
 import { TwitchChat } from "@/components/TwitchChat"
 import { StreamMetadataEditor } from "@/components/StreamMetadataEditor"
 import { TwitchEventAlerts } from "@/components/TwitchEventAlerts"
-import { Activity, Radio, Video, Youtube } from "lucide-react"
+import { YouTubeStats } from "@/components/YouTubeStats"
+import { YouTubeChat } from "@/components/YouTubeChat"
+import { Activity, Radio, Video, Youtube, LogOut } from "lucide-react"
 
 function App() {
   const { status, connected } = useAgentStore()
+  const { isAuthenticated, token, user, clearAuth } = useAuthStore()
 
   useEffect(() => {
-    // Connect WebSocket on mount
-    wsService.connect()
+    // Only connect WebSocket if authenticated
+    if (isAuthenticated) {
+      wsService.connect()
+    }
 
     // Cleanup on unmount
     return () => {
       wsService.disconnect()
     }
-  }, [])
+  }, [isAuthenticated])
+
+  const handleLogout = async () => {
+    if (token) {
+      try {
+        await authAPI.logout(token)
+      } catch (err) {
+        console.error('Logout error:', err)
+      }
+    }
+    clearAuth()
+  }
+
+  // Show login if not authenticated
+  if (!isAuthenticated) {
+    return <Login />
+  }
 
   const connectionStatus = connected ? "Connected" : "Disconnected"
   const connectionColor = connected ? "text-green-600" : "text-red-600"
@@ -43,9 +68,18 @@ function App() {
                 Creator IT Dashboard - OBS Control & Stream Integration
               </p>
             </div>
-            <Badge variant={connected ? "success" : "destructive"} className="text-sm px-3 py-1">
-              {connected ? "● Connected" : "● Disconnected"}
-            </Badge>
+            <div className="flex items-center gap-3">
+              <div className="text-sm text-muted-foreground">
+                {user?.username}
+              </div>
+              <Badge variant={connected ? "success" : "destructive"} className="text-sm px-3 py-1">
+                {connected ? "● Connected" : "● Disconnected"}
+              </Badge>
+              <Button variant="outline" size="sm" onClick={handleLogout}>
+                <LogOut className="w-4 h-4 mr-2" />
+                Logout
+              </Button>
+            </div>
           </div>
           <Separator />
         </div>
@@ -152,33 +186,17 @@ function App() {
           </div>
         </div>
 
-        {/* YouTube Placeholder Section */}
+        {/* YouTube Integration Section */}
         <div className="space-y-4">
           <Separator />
           <h2 className="text-xl font-semibold flex items-center gap-2">
             <Youtube className="w-5 h-5 text-red-600" />
             YouTube Integration
           </h2>
-          <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Youtube className="w-5 h-5 text-red-600" />
-                  YouTube Integration
-                </CardTitle>
-                <CardDescription>
-                  Stream stats and chat integration
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline">Coming Soon</Badge>
-                </div>
-                <p className="text-sm text-muted-foreground">Not configured</p>
-                <p className="text-xs text-muted-foreground">
-                  YouTube live streaming integration planned for future release
-                </p>
-              </CardContent>
-            </Card>
+          <div className="grid gap-6 md:grid-cols-2">
+            <YouTubeStats />
+            <YouTubeChat />
+          </div>
           </div>
 
         {status && (

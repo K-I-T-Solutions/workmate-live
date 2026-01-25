@@ -1,9 +1,11 @@
 import type { AgentStatus } from '@/types/agent'
 import type { OBSEvent } from '@/types/obs'
-import type { ChatMessage, TwitchEvent } from '@/types/twitch'
+import type { ChatMessage as TwitchChatMessage, TwitchEvent } from '@/types/twitch'
+import type { ChatMessage as YouTubeChatMessage } from '@/types/youtube'
 import { useAgentStore } from '@/store/agentStore'
 import { useOBSStore } from '@/store/obsStore'
 import { useTwitchStore } from '@/store/twitchStore'
+import { useYouTubeStore } from '@/store/youtubeStore'
 
 export interface WebSocketMessage {
   type: string
@@ -61,14 +63,13 @@ class WebSocketService {
         this.handleOBSEvent(message.data as OBSEvent)
         break
       case 'twitch_chat':
-        useTwitchStore.getState().addChatMessage(message.data as ChatMessage)
+        useTwitchStore.getState().addChatMessage(message.data as TwitchChatMessage)
         break
       case 'twitch_event':
         useTwitchStore.getState().addEvent(message.data as TwitchEvent)
         break
       case 'youtube_chat':
-        // Handle YouTube chat (Phase 5)
-        console.log('YouTube chat:', message.data)
+        useYouTubeStore.getState().addChatMessage(message.data as YouTubeChatMessage)
         break
       default:
         console.log('Unknown message type:', message.type)

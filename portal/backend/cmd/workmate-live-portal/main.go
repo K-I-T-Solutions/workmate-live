@@ -10,10 +10,13 @@ import (
 
 	"kit.workmate/live-portal/internal/api"
 	"kit.workmate/live-portal/internal/api/handlers"
+	"kit.workmate/live-portal/internal/auth"
 	"kit.workmate/live-portal/internal/config"
 	"kit.workmate/live-portal/internal/services/agent"
 	"kit.workmate/live-portal/internal/services/obs"
 	"kit.workmate/live-portal/internal/services/twitch"
+	"kit.workmate/live-portal/internal/services/youtube"
+	"kit.workmate/live-portal/internal/storage"
 	"kit.workmate/live-portal/internal/websocket"
 )
 
@@ -26,6 +29,22 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
+
+	// Initialize user storage
+	userStore, err := storage.NewUserStore(cfg.Storage.Path)
+	if err != nil {
+		log.Fatalf("Failed to initialize user store: %v", err)
+	}
+	defer userStore.Close()
+
+	// Ensure default user exists
+	if err := userStore.EnsureDefaultUser(cfg.Auth.DefaultUser.Username, cfg.Auth.DefaultUser.Password); err != nil {
+		log.Fatalf("Failed to ensure default user: %v", err)
+	}
+	log.Printf("Default user ready: %s", cfg.Auth.DefaultUser.Username)
+
+	// Initialize JWT service
+	jwtService := auth.NewJWTService(cfg.Auth.JWTSecret, cfg.Auth.TokenDuration)
 
 	// Initialize WebSocket hub
 	hub := websocket.NewHub()
@@ -100,12 +119,45 @@ func main() {
 		}
 	}
 
+	// Initialize YouTube client (if enabled)
+	var youtubeClient *youtube.Client
+	if cfg.YouTube.Enabled {
+		youtubeClient = youtube.NewClient(
+			cfg.YouTube.APIKey,
+			cfg.YouTube.ChannelID,
+			cfg.YouTube.ClientID,
+			cfg.YouTube.ClientSecret,
+		)
+
+		if err := youtubeClient.Connect(); err != nil {
+			log.Printf("Warning: Failed to connect to YouTube: %v", err)
+			log.Println("YouTube features will be unavailable")
+		} else {
+			log.Println("Successfully connected to YouTube")
+
+			// Set event callback to broadcast YouTube events via WebSocket
+			youtubeClient.SetEventCallback(func(event interface{}) {
+				eventMap := event.(map[string]interface{})
+				eventType := eventMap["type"].(string)
+
+				if eventType == "chat_message" {
+					hub.Broadcast(websocket.Message{
+						Type: websocket.MessageTypeYouTubeChat,
+						Data: eventMap["data"],
+					})
+				}
+			})
+		}
+	}
+
 	// Initialize handlers
 	h := &api.Handlers{
+		Auth:      handlers.NewAuthHandler(userStore, jwtService),
 		Agent:     handlers.NewAgentHandler(agentClient),
 		WebSocket: handlers.NewWebSocketHandler(hub),
 		OBS:       handlers.NewOBSHandler(obsClient),
 		Twitch:    handlers.NewTwitchHandler(twitchClient),
+		YouTube:   handlers.NewYouTubeHandler(youtubeClient),
 	}
 
 	// Setup routes
@@ -134,6 +186,13 @@ func main() {
 	if twitchClient != nil {
 		if err := twitchClient.Disconnect(); err != nil {
 			log.Printf("Error disconnecting from Twitch: %v", err)
+		}
+	}
+
+	// Disconnect from YouTube
+	if youtubeClient != nil {
+		if err := youtubeClient.Disconnect(); err != nil {
+			log.Printf("Error disconnecting from YouTube: %v", err)
 		}
 	}
 

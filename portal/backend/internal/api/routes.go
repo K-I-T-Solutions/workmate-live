@@ -11,10 +11,12 @@ import (
 )
 
 type Handlers struct {
+	Auth      *handlers.AuthHandler
 	Agent     *handlers.AgentHandler
 	WebSocket *handlers.WebSocketHandler
 	OBS       *handlers.OBSHandler
 	Twitch    *handlers.TwitchHandler
+	YouTube   *handlers.YouTubeHandler
 }
 
 func Routes(h *Handlers) http.Handler {
@@ -56,17 +58,11 @@ func Routes(h *Handlers) http.Handler {
 
 	// API routes
 	r.Route("/api", func(r chi.Router) {
-		// Auth endpoints (Phase 1 - Not implemented yet)
+		// Auth endpoints
 		r.Route("/auth", func(r chi.Router) {
-			r.Post("/login", func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusNotImplemented)
-			})
-			r.Post("/logout", func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusNotImplemented)
-			})
-			r.Get("/verify", func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusNotImplemented)
-			})
+			r.Post("/login", h.Auth.Login)
+			r.Post("/logout", h.Auth.Logout)
+			r.Get("/verify", h.Auth.Verify)
 		})
 
 		// Agent proxy endpoints (Phase 2)
@@ -102,14 +98,11 @@ func Routes(h *Handlers) http.Handler {
 			r.Patch("/stream", h.Twitch.UpdateStream)
 		})
 
-		// YouTube endpoints (Phase 5 - Not implemented yet)
+		// YouTube endpoints
 		r.Route("/youtube", func(r chi.Router) {
-			r.Get("/status", func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusNotImplemented)
-			})
-			r.Get("/stats", func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusNotImplemented)
-			})
+			r.Get("/status", h.YouTube.GetStatus)
+			r.Get("/stats", h.YouTube.GetStats)
+			r.Patch("/stream", h.YouTube.UpdateStream)
 		})
 	})
 
