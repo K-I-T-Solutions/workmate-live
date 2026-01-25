@@ -1,0 +1,48 @@
+server:
+  address: "0.0.0.0"
+  port: 8080
+  timeouts:
+    read: 10s
+    write: 10s
+    shutdown: 5s
+
+auth:
+  jwt_secret: "workmate-portal-secret-change-in-production"
+  token_duration: 24h
+  default_user:
+    username: "admin"
+    password: "changeme"
+
+agent:
+  url: "http://127.0.0.1:9999"
+  polling_interval: 3s
+  timeout: 5s
+
+obs:
+  host: "localhost"
+  port: 4455
+  password: "7M7wzw80MgiLkigF"
+  auto_reconnect: true
+  reconnect_delay: 5s
+
+twitch:
+  enabled: true
+  client_id: "gp762nuuoqcoxypju8c569th9wz7q5"
+  client_secret: "not-needed-when-using-token-generator"  # Optional when using token generator
+  channel: "commanderphu"
+  oauth_token: "h2951vaewzuquciv6fzodq0lfr9rk1"
+
+youtube:
+  enabled: false
+  api_key: ""
+  channel_id: ""
+  client_id: ""
+  client_secret: ""
+
+storage:
+  type: "sqlite"
+  path: "./portal.db"
+
+logging:
+  level: "info"
+  format: "text"

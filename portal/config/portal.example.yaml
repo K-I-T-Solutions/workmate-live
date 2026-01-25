@@ -1,0 +1,114 @@
+# Workmate Gaming Portal Configuration
+# Copy this file to portal.yaml and adjust as needed
+
+# Server configuration
+server:
+  # Address to bind the server (0.0.0.0 for all interfaces)
+  address: "0.0.0.0"
+
+  # Port for the API server
+  port: 8080
+
+  # HTTP server timeouts
+  timeouts:
+    # Maximum time to read request
+    read: 10s
+
+    # Maximum time to write response
+    write: 10s
+
+    # Grace period for shutdown
+    shutdown: 5s
+
+# Authentication configuration
+auth:
+  # JWT secret for signing tokens (CHANGE THIS IN PRODUCTION!)
+  # Generate with: openssl rand -hex 32
+  jwt_secret: "change-this-secret-in-production-use-openssl-rand"
+
+  # JWT token validity duration
+  token_duration: 24h
+
+  # Default user credentials
+  default_user:
+    username: "admin"
+    password: "changeme"  # Will be hashed on first run
+
+# Agent connection settings
+agent:
+  # URL of the workmate-agent API
+  url: "http://127.0.0.1:9999"
+
+  # How often to poll agent for status updates
+  polling_interval: 3s
+
+  # HTTP request timeout
+  timeout: 5s
+
+# OBS Studio connection
+obs:
+  # OBS websocket host
+  host: "192.168.178.100"
+
+  # OBS websocket port (default: 4455 for v5, 4444 for v4)
+  port: 4455
+
+  # OBS websocket password (if configured in OBS)
+  password: "Workmate2025%21"
+
+  # Automatically reconnect on disconnect
+  auto_reconnect: true
+
+  # Delay between reconnection attempts
+  reconnect_delay: 5s
+
+# Twitch integration
+twitch:
+  # Enable Twitch features
+  enabled: false
+
+  # Twitch application client ID
+  # Get from: https://dev.twitch.tv/console/apps
+  client_id: ""
+
+  # Twitch application client secret
+  client_secret: ""
+
+  # Twitch channel name
+  channel: ""
+
+  # OAuth token for chat/API access
+  # Get from: https://twitchapps.com/tmi/
+  oauth_token: ""
+
+# YouTube integration
+youtube:
+  # Enable YouTube features
+  enabled: false
+
+  # YouTube Data API key
+  # Get from: https://console.cloud.google.com/apis/credentials
+  api_key: ""
+
+  # YouTube channel ID
+  channel_id: ""
+
+  # OAuth credentials (for future OAuth flow)
+  client_id: ""
+  client_secret: ""
+
+# Storage configuration
+storage:
+  # Storage type (currently only "sqlite" supported)
+  type: "sqlite"
+
+  # Database file path
+  path: "./portal.db"
+
+# Logging configuration
+logging:
+  # Log level: debug, info, warn, error
+  level: "info"
+
+  # Log format: text or json
+  format: "text"

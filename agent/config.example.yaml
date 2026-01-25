@@ -1,0 +1,57 @@
+# Workmate Gaming Agent Configuration
+# Copy this file to config.yaml and adjust as needed
+
+# Server configuration
+server:
+  # Address to bind the API server
+  address: "127.0.0.1"
+
+  # Port for the API server
+  port: 8787
+
+  # HTTP server timeouts
+  timeouts:
+    # Maximum time to read request
+    read: 5s
+
+    # Maximum time to write response
+    write: 5s
+
+    # Grace period for shutdown
+    shutdown: 5s
+
+# Health monitoring configuration
+health:
+  # How often to poll system status
+  polling_interval: 2s
+
+  # Enable/disable individual system checks
+  # Disabled checks will return empty/zero values
+  checks:
+    gpu: true     # Detect GPU via /dev/dri
+    audio: true   # Check PipeWire status
+    video: true   # Scan /dev/video* devices
+    obs: true     # Detect OBS process
+
+# Web portal integration (future use)
+# The agent currently only provides API endpoints
+# This configuration is reserved for future push functionality
+portal:
+  # Enable portal integration
+  enabled: false
+
+  # Portal base URL
+  url: "https://portal.workmate.gaming"
+
+  # API key for authentication (option 1)
+  api_key: ""
+
+  # Username/password authentication (option 2)
+  credentials:
+    username: ""
+    password: ""
+
+  # Portal connection settings
+  timeout: 10s
+  retry_attempts: 3
+  retry_delay: 5s
