@@ -8,9 +8,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"kit.workmate/gaming-agent/internal/api"
-	"kit.workmate/gaming-agent/internal/config"
-	"kit.workmate/gaming-agent/internal/health"
+	"kit.workmate/live-agent/internal/api"
+	"kit.workmate/live-agent/internal/config"
+	"kit.workmate/live-agent/internal/health"
 )
 
 func main() {

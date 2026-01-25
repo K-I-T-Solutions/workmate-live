@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"kit.workmate/gaming-agent/internal/buildinfo"
-	"kit.workmate/gaming-agent/internal/health"
-	"kit.workmate/gaming-agent/internal/system/specs"
+	"kit.workmate/live-agent/internal/buildinfo"
+	"kit.workmate/live-agent/internal/health"
+	"kit.workmate/live-agent/internal/system/specs"
 )
 
 func Routes(cache *health.Cache) http.Handler {

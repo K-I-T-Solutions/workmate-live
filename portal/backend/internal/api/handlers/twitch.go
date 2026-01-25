@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"kit.workmate/gaming-portal/internal/services/twitch"
+	"kit.workmate/live-portal/internal/services/twitch"
 )
 
 // TwitchHandler handles Twitch-related HTTP requests

@@ -8,13 +8,13 @@ import (
 	"os/signal"
 	"syscall"
 
-	"kit.workmate/gaming-portal/internal/api"
-	"kit.workmate/gaming-portal/internal/api/handlers"
-	"kit.workmate/gaming-portal/internal/config"
-	"kit.workmate/gaming-portal/internal/services/agent"
-	"kit.workmate/gaming-portal/internal/services/obs"
-	"kit.workmate/gaming-portal/internal/services/twitch"
-	"kit.workmate/gaming-portal/internal/websocket"
+	"kit.workmate/live-portal/internal/api"
+	"kit.workmate/live-portal/internal/api/handlers"
+	"kit.workmate/live-portal/internal/config"
+	"kit.workmate/live-portal/internal/services/agent"
+	"kit.workmate/live-portal/internal/services/obs"
+	"kit.workmate/live-portal/internal/services/twitch"
+	"kit.workmate/live-portal/internal/websocket"
 )
 
 func main() {

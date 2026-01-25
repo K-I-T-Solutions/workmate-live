@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"kit.workmate/gaming-portal/internal/services/obs"
+	"kit.workmate/live-portal/internal/services/obs"
 )
 
 type OBSHandler struct {

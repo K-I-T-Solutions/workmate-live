@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/websocket"
-	ws "kit.workmate/gaming-portal/internal/websocket"
+	ws "kit.workmate/live-portal/internal/websocket"
 )
 
 var upgrader = websocket.Upgrader{

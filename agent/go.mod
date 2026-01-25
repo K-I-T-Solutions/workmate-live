@@ -1,4 +1,4 @@
-module kit.workmate/gaming-agent
+module kit.workmate/live-agent
 
 go 1.25.5
 

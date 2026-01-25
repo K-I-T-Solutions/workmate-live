@@ -5,7 +5,7 @@ import (
 	"log"
 	"net/http"
 
-	"kit.workmate/gaming-portal/internal/config"
+	"kit.workmate/live-portal/internal/config"
 )
 
 type Server struct {

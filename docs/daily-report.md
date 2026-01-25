@@ -1,7 +1,7 @@
 # Twitch Integration - Implementation Report
 
 **Datum:** 2025-12-29
-**Projekt:** Workmate Gaming Portal - Twitch Integration
+**Projekt:** Workmate Live Portal - Twitch Integration
 **Entwickler:** Claude Code
 
 ---

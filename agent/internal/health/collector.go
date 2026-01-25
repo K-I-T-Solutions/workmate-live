@@ -4,11 +4,11 @@ import (
 	"os"
 	"time"
 
-	"kit.workmate/gaming-agent/internal/config"
-	"kit.workmate/gaming-agent/internal/system/audio"
-	"kit.workmate/gaming-agent/internal/system/gpu"
-	"kit.workmate/gaming-agent/internal/system/obs"
-	"kit.workmate/gaming-agent/internal/system/video"
+	"kit.workmate/live-agent/internal/config"
+	"kit.workmate/live-agent/internal/system/audio"
+	"kit.workmate/live-agent/internal/system/gpu"
+	"kit.workmate/live-agent/internal/system/obs"
+	"kit.workmate/live-agent/internal/system/video"
 )
 
 func Collect(checks config.ChecksConfig) (*Status, error) {

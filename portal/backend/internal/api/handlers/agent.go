@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"kit.workmate/gaming-portal/internal/services/agent"
+	"kit.workmate/live-portal/internal/services/agent"
 )
 
 type AgentHandler struct {

@@ -1,17 +1,17 @@
-# Workmate Gaming
+# Workmate Live
 
-[![GitHub release](https://img.shields.io/github/v/release/K-I-T-Solutions/workmate-gaming?style=flat-square)](https://github.com/K-I-T-Solutions/workmate-gaming/releases)
+[![GitHub release](https://img.shields.io/github/v/release/K-I-T-Solutions/workmate-live?style=flat-square)](https://github.com/K-I-T-Solutions/workmate-live/releases)
 [![License](https://img.shields.io/badge/license-Proprietary-red?style=flat-square)](LICENSE)
 [![Go Version](https://img.shields.io/badge/Go-1.25.5-00ADD8?style=flat-square&logo=go)](https://golang.org/)
 [![React](https://img.shields.io/badge/React-19.2.0-61DAFB?style=flat-square&logo=react)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9.3-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](https://github.com/K-I-T-Solutions/workmate-gaming/pulls)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](https://github.com/K-I-T-Solutions/workmate-live/pulls)
 
-Eine umfassende Streaming- und Gaming-Assistenzplattform, die Systemüberwachung, OBS Studio-Integration und Multi-Plattform-Streaming-Support bietet.
+Eine plattformunabhängige, self-hosted Live-Streaming und Event-Broadcasting-Lösung, die Systemüberwachung, OBS Studio-Integration und Multi-Plattform-Streaming-Support für professionelle Events, Content Creator und hybride Veranstaltungen bietet.
 
 ## Überblick
 
-Workmate Gaming besteht aus zwei Hauptkomponenten:
+Workmate Live besteht aus zwei Hauptkomponenten:
 
 - **Agent**: Ein leichtgewichtiger Systemüberwachungsdienst, der Hardware- und Softwarestatus erfasst
 - **Portal**: Eine Web-basierte Steuerungszentrale mit Backend-API und modernem Frontend
@@ -19,7 +19,7 @@ Workmate Gaming besteht aus zwei Hauptkomponenten:
 ## Projektstruktur
 
 ```
-workmate_gaming/
+workmate_live/
 ├── agent/              # Systemüberwachungs-Agent (Go)
 ├── portal/             # Web-Portal
 │   ├── backend/       # Portal API-Server (Go)
@@ -93,10 +93,10 @@ cd agent
 cp config.example.yaml config.yaml
 
 # Binary builden
-go build -o workmate-agent cmd/workmate-agent/main.go
+go build -o workmate-live-agent cmd/workmate-agent/main.go
 
 # Agent starten
-./workmate-agent
+./workmate-live-agent
 ```
 
 ### Portal Backend Setup
@@ -113,10 +113,10 @@ cp config/portal.example.yaml config/portal.yaml
 # - API-Keys für Twitch/YouTube
 
 # Binary builden
-go build -o portal cmd/portal/main.go
+go build -o workmate-live-portal cmd/portal/main.go
 
 # Portal starten
-./portal
+./workmate-live-portal
 ```
 
 ### Portal Frontend Setup

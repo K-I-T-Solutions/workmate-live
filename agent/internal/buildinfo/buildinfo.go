@@ -1,7 +1,7 @@
 package buildinfo
 
 var (
-	Name      = "workmate-gaming-agent"
+	Name      = "workmate-live-agent"
 	Version   = "dev"
 	Commit    = "unknown"
 	BuildTime = "unknown"

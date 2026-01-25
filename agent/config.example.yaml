@@ -1,4 +1,4 @@
-# Workmate Gaming Agent Configuration
+# Workmate Live Agent Configuration
 # Copy this file to config.yaml and adjust as needed
 
 # Server configuration
@@ -41,7 +41,7 @@ portal:
   enabled: false
 
   # Portal base URL
-  url: "https://portal.workmate.gaming"
+  url: "https://portal.workmate.live"
 
   # API key for authentication (option 1)
   api_key: ""

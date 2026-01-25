@@ -1,6 +1,6 @@
 package api
 
-import "kit.workmate/gaming-agent/internal/system/specs"
+import "kit.workmate/live-agent/internal/system/specs"
 
 type Info struct {
 	Name      string      `json:"name"`

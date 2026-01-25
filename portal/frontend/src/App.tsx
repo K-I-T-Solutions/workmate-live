@@ -37,7 +37,7 @@ function App() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                Workmate Gaming Portal
+                Workmate Live Portal
               </h1>
               <p className="text-muted-foreground mt-2">
                 Creator IT Dashboard - OBS Control & Stream Integration

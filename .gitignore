@@ -10,7 +10,9 @@ go.work
 
 # Go build artifacts
 agent/workmate-agent
+agent/workmate-live-agent
 portal/backend/portal
+portal/backend/workmate-live-portal
 vendor/
 
 # Configuration files (contain secrets)
@@ -80,3 +82,4 @@ credentials.json
 *.pem
 *.key
 *.crt
+workmate-live-rename-prompt.md

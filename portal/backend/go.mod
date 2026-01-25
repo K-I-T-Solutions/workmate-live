@@ -1,4 +1,4 @@
-module kit.workmate/gaming-portal
+module kit.workmate/live-portal
 
 go 1.25.5
 

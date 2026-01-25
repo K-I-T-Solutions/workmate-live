@@ -4,7 +4,7 @@ import (
 	"log"
 	"time"
 
-	"kit.workmate/gaming-agent/internal/config"
+	"kit.workmate/live-agent/internal/config"
 )
 
 type Poller struct {

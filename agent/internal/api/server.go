@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"kit.workmate/gaming-agent/internal/config"
+	"kit.workmate/live-agent/internal/config"
 )
 
 type Server struct {

@@ -3,7 +3,7 @@ package health
 import (
 	"time"
 
-	"kit.workmate/gaming-agent/internal/system/gpu"
+	"kit.workmate/live-agent/internal/system/gpu"
 )
 
 //Status ist das zentrale Objekt,
