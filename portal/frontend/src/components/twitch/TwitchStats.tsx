@@ -65,7 +65,7 @@ export function TwitchStats() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Radio className="w-5 h-5 text-purple-600" />
+            <Radio className="w-5 h-5 text-primary" />
             Twitch Stats
           </CardTitle>
         </CardHeader>
@@ -84,12 +84,12 @@ export function TwitchStats() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Radio className="w-5 h-5 text-purple-600" />
+            <Radio className="w-5 h-5 text-primary" />
             Twitch Stats
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-red-600">{error}</p>
+          <p className="text-sm text-destructive">{error}</p>
           <Button size="sm" variant="outline" onClick={loadStats} className="mt-3">
             <RefreshCw className="w-4 h-4 mr-2" />
             Retry
@@ -104,7 +104,7 @@ export function TwitchStats() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Radio className="w-5 h-5 text-purple-600" />
+            <Radio className="w-5 h-5 text-primary" />
             Twitch Stats
           </CardTitle>
         </CardHeader>
@@ -120,7 +120,7 @@ export function TwitchStats() {
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
-            <Radio className="w-5 h-5 text-purple-600" />
+            <Radio className="w-5 h-5 text-primary" />
             Twitch Stats
           </CardTitle>
           <Button
@@ -136,10 +136,10 @@ export function TwitchStats() {
         {stats.is_live ? (
           <div className="flex items-center gap-2 mt-2">
             <span className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive"></span>
             </span>
-            <span className="text-sm font-bold text-red-600 dark:text-red-500">LIVE NOW</span>
+            <span className="text-sm font-bold text-destructive">LIVE NOW</span>
           </div>
         ) : (
           <span className="inline-flex items-center gap-1.5 mt-2 text-sm text-muted-foreground">
@@ -150,7 +150,7 @@ export function TwitchStats() {
       </CardHeader>
       <CardContent className="space-y-3">
         {stats.is_live && getThumbnailUrl(stats.thumbnail_url) && (
-          <div className="relative overflow-hidden rounded-lg border border-purple-200/50 dark:border-purple-800/30">
+          <div className="relative overflow-hidden rounded-lg border border-primary/20">
             <img
               src={getThumbnailUrl(stats.thumbnail_url)!}
               alt="Stream Preview"
@@ -160,7 +160,7 @@ export function TwitchStats() {
               }}
             />
             <div className="absolute top-2 right-2">
-              <Badge variant="destructive" className="bg-red-600 text-white font-bold">
+              <Badge variant="destructive" className="font-bold">
                 ● LIVE
               </Badge>
             </div>
@@ -168,45 +168,45 @@ export function TwitchStats() {
         )}
         {stats.is_live && (
           <>
-            <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 rounded-lg">
-              <Eye className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+            <div className="flex items-center gap-3 p-3 bg-primary/10 border border-primary/20 rounded-lg">
+              <Eye className="w-5 h-5 text-primary" />
               <span className="text-sm font-medium">Viewers</span>
-              <span className="ml-auto text-lg font-bold text-purple-600 dark:text-purple-400">
+              <span className="ml-auto text-lg font-bold text-primary">
                 {stats.viewer_count.toLocaleString()}
               </span>
             </div>
             <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-              <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              <Clock className="w-5 h-5 text-secondary" />
               <span className="text-sm font-medium">Uptime</span>
-              <span className="ml-auto font-mono text-sm font-semibold text-blue-600 dark:text-blue-400">
+              <span className="ml-auto font-mono text-sm font-semibold text-secondary">
                 {formatUptime(stats.uptime)}
               </span>
             </div>
             {stats.started_at && (
               <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                <CalendarClock className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                <CalendarClock className="w-5 h-5 text-warning" />
                 <span className="text-sm font-medium">Started</span>
-                <span className="ml-auto text-xs font-medium text-orange-600 dark:text-orange-400">
+                <span className="ml-auto text-xs font-medium text-warning">
                   {new Date(stats.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
             )}
             {stats.language && (
               <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                <Globe className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <Globe className="w-5 h-5 text-primary" />
                 <span className="text-sm font-medium">Language</span>
                 <span className="ml-auto text-sm font-semibold flex items-center gap-1.5">
                   <span>{getLanguageDisplay(stats.language).flag}</span>
-                  <span className="text-indigo-600 dark:text-indigo-400">{getLanguageDisplay(stats.language).name}</span>
+                  <span className="text-primary">{getLanguageDisplay(stats.language).name}</span>
                 </span>
               </div>
             )}
           </>
         )}
         <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-          <Users className="w-5 h-5 text-green-600 dark:text-green-400" />
+          <Users className="w-5 h-5 text-success" />
           <span className="text-sm font-medium">Followers</span>
-          <span className="ml-auto text-lg font-bold text-green-600 dark:text-green-400">
+          <span className="ml-auto text-lg font-bold text-success">
             {stats.follower_count.toLocaleString()}
           </span>
         </div>
@@ -214,7 +214,7 @@ export function TwitchStats() {
           <div className="pt-3 mt-3 border-t space-y-2">
             <p className="text-sm font-semibold line-clamp-2 leading-relaxed">{stats.title}</p>
             {stats.game_name && (
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/15 text-primary">
                 {stats.game_name}
               </span>
             )}

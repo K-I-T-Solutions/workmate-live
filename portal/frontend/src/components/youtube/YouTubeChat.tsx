@@ -18,7 +18,7 @@ export function YouTubeChat() {
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
-            <MessageSquare className="w-5 h-5 text-red-600" />
+            <MessageSquare className="w-5 h-5 text-destructive" />
             YouTube Live Chat
           </CardTitle>
           <Button variant="outline" size="sm" onClick={clearChat} title="Clear chat">
@@ -38,17 +38,17 @@ export function YouTubeChat() {
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-sm">{msg.author_name}</span>
                   {msg.is_owner && (
-                    <Badge variant="default" className="h-5 px-1.5 bg-red-600 text-xs">
+                    <Badge variant="destructive" className="h-5 px-1.5 text-xs">
                       <Crown className="w-3 h-3" />
                     </Badge>
                   )}
                   {msg.is_moderator && (
-                    <Badge variant="default" className="h-5 px-1.5 bg-green-600 text-xs">
+                    <Badge variant="default" className="h-5 px-1.5 bg-success text-xs">
                       <Shield className="w-3 h-3" />
                     </Badge>
                   )}
                   {msg.is_sponsor && (
-                    <Badge variant="default" className="h-5 px-1.5 bg-purple-600 text-xs">
+                    <Badge variant="default" className="h-5 px-1.5 bg-primary text-xs">
                       <Star className="w-3 h-3" />
                     </Badge>
                   )}

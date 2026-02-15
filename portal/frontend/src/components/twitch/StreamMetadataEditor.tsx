@@ -44,26 +44,26 @@ export function StreamMetadataEditor() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Edit3 className="w-5 h-5 text-purple-600" />
+          <Edit3 className="w-5 h-5 text-primary" />
           Stream Metadata
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {stats && (
-          <div className="p-4 bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-950/20 dark:to-blue-950/20 rounded-lg border border-purple-200/50 dark:border-purple-800/30 space-y-2">
+          <div className="p-4 bg-primary/10 rounded-lg border border-primary/20 space-y-2">
             <div className="flex items-start gap-2">
-              <Edit3 className="w-4 h-4 text-purple-600 dark:text-purple-400 mt-0.5 flex-shrink-0" />
+              <Edit3 className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
               <div className="space-y-1 flex-1 min-w-0">
-                <p className="text-xs font-medium text-purple-900 dark:text-purple-300">Current Title</p>
+                <p className="text-xs font-medium text-primary">Current Title</p>
                 <p className="text-sm font-semibold line-clamp-2">
                   {stats.title || <span className="text-muted-foreground italic">No title set</span>}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Gamepad2 className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+              <Gamepad2 className="w-4 h-4 text-secondary flex-shrink-0" />
               <div className="flex-1">
-                <p className="text-xs font-medium text-blue-900 dark:text-blue-300">Current Game</p>
+                <p className="text-xs font-medium text-secondary">Current Game</p>
                 <p className="text-sm font-semibold">
                   {stats.game_name || <span className="text-muted-foreground italic">No game set</span>}
                 </p>
@@ -84,7 +84,7 @@ export function StreamMetadataEditor() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               disabled={loading}
-              className="transition-all focus:ring-2 focus:ring-purple-500/20"
+              className="transition-all focus:ring-2 focus:ring-primary/20"
             />
           </div>
 
@@ -99,27 +99,27 @@ export function StreamMetadataEditor() {
               value={gameName}
               onChange={(e) => setGameName(e.target.value)}
               disabled={loading}
-              className="transition-all focus:ring-2 focus:ring-purple-500/20"
+              className="transition-all focus:ring-2 focus:ring-primary/20"
             />
           </div>
         </div>
 
         {error && (
-          <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-400 rounded-lg border border-red-200 dark:border-red-800/30">
+          <div className="flex items-center gap-2 p-3 bg-destructive/10 text-destructive rounded-lg border border-destructive/20">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
             <p className="text-sm font-medium">{error}</p>
           </div>
         )}
 
         {success && (
-          <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-400 rounded-lg border border-green-200 dark:border-green-800/30 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="flex items-center gap-2 p-3 bg-success/10 text-success rounded-lg border border-success/20 animate-card-enter">
             <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
             <p className="text-sm font-medium">Stream metadata updated successfully!</p>
           </div>
         )}
 
         <Button
-          className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg shadow-purple-500/25 transition-all hover:shadow-xl hover:shadow-purple-500/30"
+          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:shadow-xl hover:shadow-primary/30"
           onClick={handleUpdate}
           disabled={loading || (!title && !gameName)}
           size="lg"

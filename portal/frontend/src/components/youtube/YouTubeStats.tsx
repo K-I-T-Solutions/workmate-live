@@ -34,7 +34,7 @@ export function YouTubeStats() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Video className="w-5 h-5 text-red-600" />
+            <Video className="w-5 h-5 text-destructive" />
             YouTube Stats
           </CardTitle>
         </CardHeader>
@@ -50,12 +50,12 @@ export function YouTubeStats() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Video className="w-5 h-5 text-red-600" />
+            <Video className="w-5 h-5 text-destructive" />
             YouTube Stats
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-sm text-red-600">{error}</div>
+          <div className="text-sm text-destructive">{error}</div>
         </CardContent>
       </Card>
     )
@@ -78,10 +78,10 @@ export function YouTubeStats() {
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
-            <Video className="w-5 h-5 text-red-600" />
+            <Video className="w-5 h-5 text-destructive" />
             YouTube Stats
           </CardTitle>
-          <Badge variant={stats.is_live ? 'default' : 'secondary'} className={stats.is_live ? 'bg-red-600' : ''}>
+          <Badge variant={stats.is_live ? 'destructive' : 'secondary'}>
             {stats.is_live ? '● LIVE' : 'Offline'}
           </Badge>
         </div>

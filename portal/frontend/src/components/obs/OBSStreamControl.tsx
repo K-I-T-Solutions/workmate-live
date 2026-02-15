@@ -90,7 +90,7 @@ export function OBSStreamControl() {
               <span className="font-mono">{formatBytes(streaming.bytes)}</span>
             </div>
             {streaming.reconnecting && (
-              <p className="text-sm text-yellow-600">Reconnecting...</p>
+              <p className="text-sm text-warning">Reconnecting...</p>
             )}
           </div>
         )}

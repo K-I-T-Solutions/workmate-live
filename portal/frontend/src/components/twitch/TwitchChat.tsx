@@ -16,7 +16,7 @@ export function TwitchChat() {
     <Card className="flex flex-col h-[500px]">
       <CardHeader className="flex-none flex flex-row items-center justify-between pb-3">
         <CardTitle className="flex items-center gap-2">
-          <MessageCircle className="w-5 h-5 text-purple-600" />
+          <MessageCircle className="w-5 h-5 text-primary" />
           Live Chat
           {chatMessages.length > 0 && (
             <span className="text-xs font-normal text-muted-foreground">
@@ -29,7 +29,7 @@ export function TwitchChat() {
           size="icon"
           onClick={clearChat}
           title="Clear chat"
-          className="h-8 w-8 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-950/30"
+          className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
         >
           <Trash2 className="w-4 h-4" />
         </Button>
@@ -54,13 +54,13 @@ export function TwitchChat() {
                       {msg.display_name || msg.username}
                     </span>
                     {msg.is_moderator && (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-semibold bg-green-600 text-white rounded">
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-semibold bg-success text-success-foreground rounded">
                         <Shield className="w-3 h-3" />
                         MOD
                       </span>
                     )}
                     {msg.is_subscriber && (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-semibold bg-purple-600 text-white rounded">
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-semibold bg-primary text-primary-foreground rounded">
                         <Star className="w-3 h-3" />
                         SUB
                       </span>
@@ -68,7 +68,7 @@ export function TwitchChat() {
                     {msg.badges.length > 0 && msg.badges.map((badge, bidx) => (
                       <span
                         key={bidx}
-                        className="px-1.5 py-0.5 text-xs font-medium bg-gray-600 dark:bg-gray-700 text-white rounded"
+                        className="px-1.5 py-0.5 text-xs font-medium bg-muted text-muted-foreground rounded"
                       >
                         {badge}
                       </span>
