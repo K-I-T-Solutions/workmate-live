@@ -2,13 +2,15 @@ import { useEffect } from 'react'
 import { useUIStore } from '@/store/uiStore'
 import { SidebarItem } from './SidebarItem'
 import { Separator } from '@/components/ui/separator'
-import { LayoutDashboard, Video, Radio, Youtube, Settings, PanelLeftClose, PanelLeft } from 'lucide-react'
+import { LayoutDashboard, Video, Radio, Youtube, Settings, PanelLeftClose, PanelLeft, Terminal, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/obs', icon: Video, label: 'OBS Studio' },
   { to: '/twitch', icon: Radio, label: 'Twitch' },
+  { to: '/commands', icon: Terminal, label: 'Commands' },
+  { to: '/automation', icon: Zap, label: 'Automations' },
   { to: '/youtube', icon: Youtube, label: 'YouTube' },
 ]
 
@@ -39,10 +41,10 @@ export function Sidebar() {
     >
       {/* Logo / Brand */}
       <div className={cn('flex items-center h-12 px-3 border-b border-border/50', sidebarCollapsed ? 'justify-center' : 'gap-2')}>
-        {!sidebarCollapsed && (
-          <span className="text-sm font-bold text-primary text-glow-primary truncate">
-            Workmate Live
-          </span>
+        {sidebarCollapsed ? (
+          <img src="/logo-wm-live.png" className="w-7 h-7 object-contain" alt="" />
+        ) : (
+          <img src="/sign-live.png" className="h-6 object-contain" alt="Workmate Live" />
         )}
         <button
           onClick={toggleSidebar}
@@ -60,15 +62,15 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 flex flex-col gap-1 p-2">
+      <nav className={cn('flex-1 flex flex-col gap-1 p-2', sidebarCollapsed && 'items-center')}>
         {navItems.map((item) => (
           <SidebarItem key={item.to} {...item} collapsed={sidebarCollapsed} />
         ))}
       </nav>
 
       {/* Bottom */}
-      <div className="p-2">
-        <Separator className="mb-2" />
+      <div className={cn('p-2', sidebarCollapsed && 'flex flex-col items-center')}>
+        <Separator className="mb-2 w-full" />
         {bottomItems.map((item) => (
           <SidebarItem key={item.to} {...item} collapsed={sidebarCollapsed} />
         ))}

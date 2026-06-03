@@ -16,10 +16,10 @@ export function SidebarItem({ to, icon: Icon, label, collapsed }: SidebarItemPro
       to={to}
       className={({ isActive }) =>
         cn(
-          'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200',
-          collapsed ? 'justify-center' : '',
+          'flex items-center rounded-lg py-2 text-sm font-medium transition-all duration-200',
+          collapsed ? 'justify-center px-0' : 'gap-3 px-3',
           isActive
-            ? 'bg-primary/10 text-primary shadow-[0_0_15px_rgba(124,58,237,0.15)]'
+            ? 'bg-primary/10 text-primary shadow-[0_0_15px_rgba(204,0,255,0.15)]'
             : 'text-muted-foreground hover:bg-accent hover:text-foreground'
         )
       }

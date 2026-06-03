@@ -1,0 +1,39 @@
+services:
+  backend:
+    container_name: workmate_live_backend
+    build:
+      context: ./portal/backend
+      dockerfile: Dockerfile
+    volumes:
+      - backend_data:/app/data
+      - ./portal/backend/config/portal.docker.yaml:/app/config/portal.yaml
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - core_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  frontend:
+    container_name: workmate_live_ui
+    build:
+      context: ./portal/frontend
+      dockerfile: Dockerfile
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - core_network
+    restart: unless-stopped
+
+volumes:
+  backend_data:
+
+networks:
+  core_network:
+    external: true

@@ -35,12 +35,10 @@ export function Login() {
       <div className="w-full max-w-md animate-card-enter">
         <Card className="border-border/50 shadow-lg shadow-primary/5">
           <CardHeader className="space-y-2">
-            <div className="flex items-center justify-center mb-2">
-              <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center glow-primary">
-                <Lock className="w-8 h-8 text-primary-foreground" />
-              </div>
+            <div className="flex flex-col items-center gap-3 mb-2">
+              <img src="/logo-wm-live.png" className="w-20 h-20 object-contain" alt="" />
+              <img src="/sign-live.png" className="h-8 object-contain" alt="Workmate Live" />
             </div>
-            <CardTitle className="text-2xl text-center text-glow-primary">Workmate Live Portal</CardTitle>
             <CardDescription className="text-center text-muted-foreground">
               Sign in to access the streaming dashboard
             </CardDescription>

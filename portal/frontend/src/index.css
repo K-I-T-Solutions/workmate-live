@@ -7,7 +7,7 @@
   --color-card-foreground: #e8e8f0;
   --color-popover: #13131a;
   --color-popover-foreground: #e8e8f0;
-  --color-primary: #7c3aed;
+  --color-primary: #cc00ff;
   --color-primary-foreground: #ffffff;
   --color-secondary: #06b6d4;
   --color-secondary-foreground: #ffffff;
@@ -23,10 +23,10 @@
   --color-warning-foreground: #000000;
   --color-border: #2a2a3a;
   --color-input: #2a2a3a;
-  --color-ring: #7c3aed;
+  --color-ring: #cc00ff;
   --color-sidebar: #0d0d14;
   --color-sidebar-foreground: #8888a0;
-  --color-sidebar-active: #7c3aed;
+  --color-sidebar-active: #cc00ff;
   --radius: 0.5rem;
 }
 
@@ -61,7 +61,7 @@ body {
 
 /* Glow Utilities */
 .glow-primary {
-  box-shadow: 0 0 20px rgba(124, 58, 237, 0.3);
+  box-shadow: 0 0 20px rgba(204, 0, 255, 0.3);
 }
 
 .glow-secondary {
@@ -124,7 +124,7 @@ body {
 
 /* Neon Text Glow */
 .text-glow-primary {
-  text-shadow: 0 0 10px rgba(124, 58, 237, 0.5);
+  text-shadow: 0 0 10px rgba(204, 0, 255, 0.5);
 }
 
 .text-glow-secondary {
