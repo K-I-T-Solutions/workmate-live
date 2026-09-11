@@ -83,6 +83,9 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
     # Nur vom Hauptbranch oder auf ausdrückliche Anforderung ausrollen.
     if: github.ref == 'refs/heads/main' || inputs.deploy
     concurrency:
@@ -113,6 +116,19 @@ jobs:
           printf '%s\n' "$KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
           ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      # Die GHCR-Packages sind privat. Statt einen dauerhaften PAT auf dem
+      # Server zu hinterlegen, meldet sich dieser Lauf mit seinem eigenen,
+      # kurzlebigen Token an.
+      - name: Server an ghcr.io anmelden
+        if: steps.check.outputs.ready == 'true'
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "$TOKEN" | ssh -i ~/.ssh/id_deploy -o BatchMode=yes "${USER}@${HOST}" \
+            "docker login ghcr.io -u '${{ github.actor }}' --password-stdin"
 
       - name: Images ziehen und neu starten
         if: steps.check.outputs.ready == 'true'
