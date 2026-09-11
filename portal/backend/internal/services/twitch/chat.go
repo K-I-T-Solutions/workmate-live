@@ -269,6 +269,14 @@ func (c *ChatClient) pingHandler() {
 	}
 }
 
+// SendMessage sends a chat message to the channel
+func (c *ChatClient) SendMessage(message string) error {
+	if !c.IsConnected() {
+		return fmt.Errorf("not connected to chat")
+	}
+	return c.sendRaw("PRIVMSG #" + c.channel + " :" + message)
+}
+
 // sendRaw sends a raw IRC command
 func (c *ChatClient) sendRaw(command string) error {
 	if c.conn == nil {

@@ -31,6 +31,12 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("storage config: %w", err)
 	}
 
+	// Der Agent-Modus setzt voraus, dass sich Agents überhaupt verbinden
+	// dürfen — ohne API-Key ist der Link-Endpunkt deaktiviert.
+	if c.OBS.Mode == OBSModeAgent && c.Agent.APIKey == "" {
+		return fmt.Errorf("obs mode %q requires agent.api_key to be set", OBSModeAgent)
+	}
+
 	return nil
 }
 
@@ -79,8 +85,10 @@ func (a *AuthConfig) Validate() error {
 }
 
 func (a *AgentConfig) Validate() error {
-	if a.URL == "" {
-		return errors.New("agent URL required")
+	// Eine leere URL ist zulässig: verbindet sich der Agent selbst über den
+	// Link, ist er von außen gar nicht erreichbar und wird nicht gepollt.
+	if a.URL == "" && a.APIKey == "" {
+		return errors.New("agent URL required unless api_key enables the agent link")
 	}
 
 	if a.PollingInterval <= 0 {
@@ -91,10 +99,27 @@ func (a *AgentConfig) Validate() error {
 		return errors.New("timeout must be positive")
 	}
 
+	if a.CommandTimeout < 0 {
+		return errors.New("command timeout must not be negative")
+	}
+
 	return nil
 }
 
 func (o *OBSConfig) Validate() error {
+	switch o.Mode {
+	case "", OBSModeDirect, OBSModeAgent:
+		// ok — leer wird beim Laden auf "direct" normalisiert
+	default:
+		return fmt.Errorf("mode must be %q or %q, got %q", OBSModeDirect, OBSModeAgent, o.Mode)
+	}
+
+	// Im Agent-Modus verbindet nicht das Portal, sondern der Agent zu OBS —
+	// Host und Port aus diesem Block sind dann bedeutungslos.
+	if o.Mode == OBSModeAgent {
+		return nil
+	}
+
 	if o.Port < 1 || o.Port > 65535 {
 		return errors.New("port must be between 1 and 65535")
 	}

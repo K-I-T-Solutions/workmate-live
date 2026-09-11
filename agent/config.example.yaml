@@ -33,25 +33,53 @@ health:
     video: true   # Scan /dev/video* devices
     obs: true     # Detect OBS process
 
-# Web portal integration (future use)
-# The agent currently only provides API endpoints
-# This configuration is reserved for future push functionality
-portal:
-  # Enable portal integration
+# OBS remote control
+# Enable this on the machine where OBS runs. The agent connects to the local
+# OBS WebSocket and executes the commands the portal sends over the link, so
+# the OBS WebSocket port never has to be exposed to the network.
+obs:
+  # Enable OBS control
   enabled: false
 
-  # Portal base URL
+  # Local OBS WebSocket address. Keep this on the loopback interface —
+  # the portal reaches OBS through the agent, not directly.
+  host: "127.0.0.1"
+  port: 4455
+
+  # Password from OBS: Tools -> WebSocket Server Settings
+  password: ""
+
+  # Wait time before retrying after a lost OBS connection
+  reconnect_delay: 5s
+
+# Portal link
+# The agent opens an outgoing WebSocket to the portal and keeps it open.
+# Because the agent dials out, this works from behind NAT or a firewall
+# without any inbound port on this machine.
+portal:
+  # Enable the portal link
+  enabled: false
+
+  # Portal base URL. http:// and https:// are upgraded to ws:// and wss://
+  # automatically; the agent appends /ws/agent itself.
   url: "https://portal.workmate.live"
 
-  # API key for authentication (option 1)
+  # Shared key — must match agent.api_key in the portal configuration
   api_key: ""
 
-  # Username/password authentication (option 2)
+  # Identifies this agent to the portal. Empty means: use the hostname.
+  # Must match the portal's agent.primary_id if one is configured.
+  agent_id: ""
+
+  # Reserved for a future login flow; api_key is what the link uses today.
   credentials:
     username: ""
     password: ""
 
-  # Portal connection settings
+  # Handshake timeout for the connection attempt
   timeout: 10s
+
+  # Reconnect pacing: the delay doubles per failed attempt, up to
+  # retry_attempts doublings, then stays constant (capped at 2 minutes).
   retry_attempts: 3
   retry_delay: 5s

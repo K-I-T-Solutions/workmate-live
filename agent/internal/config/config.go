@@ -14,6 +14,7 @@ import (
 type Config struct {
 	Server ServerConfig `yaml:"server"`
 	Health HealthConfig `yaml:"health"`
+	OBS    OBSConfig    `yaml:"obs"`
 	Portal PortalConfig `yaml:"portal"`
 }
 
@@ -41,14 +42,33 @@ type ChecksConfig struct {
 	OBS   bool `yaml:"obs"`
 }
 
+// OBSConfig steuert die Verbindung zur lokal laufenden OBS-Instanz.
+// Ist sie aktiv, kann das Portal OBS über die Link-Verbindung fernsteuern,
+// ohne den OBS-WebSocket-Port nach außen zu öffnen.
+type OBSConfig struct {
+	Enabled        bool          `yaml:"enabled"`
+	Host           string        `yaml:"host"`
+	Port           int           `yaml:"port"`
+	Password       string        `yaml:"password"`
+	ReconnectDelay time.Duration `yaml:"reconnect_delay"`
+}
+
 type PortalConfig struct {
-	Enabled       bool              `yaml:"enabled"`
-	URL           string            `yaml:"url"`
-	APIKey        string            `yaml:"api_key"`
+	Enabled bool   `yaml:"enabled"`
+	URL     string `yaml:"url"`
+	APIKey  string `yaml:"api_key"`
+	// AgentID identifiziert diesen Agent gegenüber dem Portal.
+	// Leer bedeutet: Hostname verwenden.
+	AgentID       string            `yaml:"agent_id"`
 	Credentials   CredentialsConfig `yaml:"credentials"`
 	Timeout       time.Duration     `yaml:"timeout"`
 	RetryAttempts int               `yaml:"retry_attempts"`
 	RetryDelay    time.Duration     `yaml:"retry_delay"`
+}
+
+// Addr returns the OBS WebSocket address (host:port)
+func (o OBSConfig) Addr() string {
+	return fmt.Sprintf("%s:%d", o.Host, o.Port)
 }
 
 type CredentialsConfig struct {

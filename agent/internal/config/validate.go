@@ -15,6 +15,10 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("health config: %w", err)
 	}
 
+	if err := c.OBS.Validate(); err != nil {
+		return fmt.Errorf("obs config: %w", err)
+	}
+
 	if err := c.Portal.Validate(); err != nil {
 		return fmt.Errorf("portal config: %w", err)
 	}
@@ -45,6 +49,26 @@ func (s *ServerConfig) Validate() error {
 func (h *HealthConfig) Validate() error {
 	if h.PollingInterval <= 0 {
 		return errors.New("polling interval must be positive")
+	}
+
+	return nil
+}
+
+func (o *OBSConfig) Validate() error {
+	if !o.Enabled {
+		return nil // Skip validation if disabled
+	}
+
+	if o.Host == "" {
+		return errors.New("obs host required when enabled")
+	}
+
+	if o.Port < 1 || o.Port > 65535 {
+		return errors.New("obs port must be between 1 and 65535")
+	}
+
+	if o.ReconnectDelay <= 0 {
+		return errors.New("obs reconnect delay must be positive")
 	}
 
 	return nil

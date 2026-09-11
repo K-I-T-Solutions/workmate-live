@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"kit.workmate/live-portal/internal/services/twitch/commands"
 )
 
 const (
@@ -21,6 +23,7 @@ type Client struct {
 	clientSecret string
 	channel      string
 	oauthToken   string
+	commandsFile string
 	httpClient   *http.Client
 
 	userID   string
@@ -32,18 +35,20 @@ type Client struct {
 
 	chatWS     *ChatClient
 	eventSubWS *EventSubClient
+	dispatcher *commands.Dispatcher
 
 	eventCallback func(interface{})
 	mu            sync.RWMutex
 }
 
 // NewClient creates a new Twitch client
-func NewClient(clientID, clientSecret, channel, oauthToken string) *Client {
+func NewClient(clientID, clientSecret, channel, oauthToken, commandsFile string) *Client {
 	return &Client{
 		clientID:     clientID,
 		clientSecret: clientSecret,
 		channel:      channel,
 		oauthToken:   oauthToken,
+		commandsFile: commandsFile,
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
@@ -62,6 +67,9 @@ func (c *Client) Connect() error {
 	c.mu.Lock()
 	c.connected = true
 	c.mu.Unlock()
+
+	// Initialize command dispatcher
+	c.dispatcher = commands.NewDispatcher(c, c.commandsFile, c.channel)
 
 	// Initialize chat client
 	c.chatWS = NewChatClient(c.channel, c.oauthToken)
@@ -435,6 +443,110 @@ func (c *Client) makeRequest(method, endpoint string, body interface{}) (*http.R
 
 // Event handlers
 
+// GetStreamUptime implements commands.StreamInfoProvider
+func (c *Client) GetStreamUptime() (bool, time.Duration, error) {
+	stream, err := c.getStream()
+	if err != nil {
+		return false, 0, err
+	}
+	if stream == nil {
+		return false, 0, nil
+	}
+	startedAt, err := time.Parse(time.RFC3339, stream.StartedAt)
+	if err != nil {
+		return true, 0, err
+	}
+	return true, time.Since(startedAt), nil
+}
+
+// SendChatMessage sends a message to the Twitch chat
+func (c *Client) SendChatMessage(message string) error {
+	if c.chatWS == nil {
+		return fmt.Errorf("chat not connected")
+	}
+	return c.chatWS.SendMessage(message)
+}
+
+// ExecuteCommand executes a command from the UI
+func (c *Client) ExecuteCommand(command string, user string) *commands.CommandResult {
+	if c.dispatcher == nil {
+		return &commands.CommandResult{
+			Command:  command,
+			Response: "Command system not initialized",
+			Success:  false,
+		}
+	}
+
+	ctx := &commands.CommandContext{
+		User:          user,
+		DisplayName:   user,
+		Message:       "!" + command,
+		IsModerator:   true,
+		IsBroadcaster: true,
+		Source:        "ui",
+	}
+
+	result := c.dispatcher.Dispatch(ctx)
+	if result == nil {
+		return &commands.CommandResult{
+			Command:  command,
+			Response: "Unknown command",
+			Success:  false,
+		}
+	}
+
+	// Send response to chat
+	if result.Success && c.chatWS != nil {
+		_ = c.chatWS.SendMessage(result.Response)
+	}
+
+	// Broadcast command event
+	c.mu.RLock()
+	callback := c.eventCallback
+	c.mu.RUnlock()
+
+	if callback != nil {
+		callback(map[string]interface{}{
+			"type": "command_executed",
+			"data": result,
+		})
+	}
+
+	return result
+}
+
+// ListCommands returns all registered commands
+func (c *Client) ListCommands() []*commands.CommandInfo {
+	if c.dispatcher == nil {
+		return nil
+	}
+	return c.dispatcher.ListCommands()
+}
+
+// AddCommand adds a new custom command
+func (c *Client) AddCommand(cmd commands.CustomCommand) error {
+	if c.dispatcher == nil {
+		return fmt.Errorf("command system not initialized")
+	}
+	return c.dispatcher.AddCustomCommand(cmd)
+}
+
+// UpdateCommand updates an existing custom command
+func (c *Client) UpdateCommand(name string, cmd commands.CustomCommand) error {
+	if c.dispatcher == nil {
+		return fmt.Errorf("command system not initialized")
+	}
+	return c.dispatcher.UpdateCustomCommand(name, cmd)
+}
+
+// DeleteCommand deletes a custom command
+func (c *Client) DeleteCommand(name string) error {
+	if c.dispatcher == nil {
+		return fmt.Errorf("command system not initialized")
+	}
+	return c.dispatcher.DeleteCustomCommand(name)
+}
+
 // handleChatMessage handles chat messages from the IRC client
 func (c *Client) handleChatMessage(msg *ChatMessage) {
 	c.mu.RLock()
@@ -446,6 +558,33 @@ func (c *Client) handleChatMessage(msg *ChatMessage) {
 			"type": "chat_message",
 			"data": msg,
 		})
+	}
+
+	// Process commands
+	if c.dispatcher != nil {
+		ctx := &commands.CommandContext{
+			User:          msg.Username,
+			DisplayName:   msg.DisplayName,
+			Message:       msg.Message,
+			IsModerator:   msg.IsModerator,
+			IsBroadcaster: msg.Username == c.channel,
+			Source:        "chat",
+		}
+
+		result := c.dispatcher.Dispatch(ctx)
+		if result != nil && result.Success {
+			if c.chatWS != nil {
+				_ = c.chatWS.SendMessage(result.Response)
+			}
+
+			// Broadcast command event
+			if callback != nil {
+				callback(map[string]interface{}{
+					"type": "command_executed",
+					"data": result,
+				})
+			}
+		}
 	}
 }
 

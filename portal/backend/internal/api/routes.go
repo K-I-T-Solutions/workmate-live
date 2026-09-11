@@ -7,17 +7,25 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"kit.workmate/live-portal/internal/agentlink"
 	"kit.workmate/live-portal/internal/api/handlers"
 	"kit.workmate/live-portal/internal/auth"
 )
 
 type Handlers struct {
-	Auth      *handlers.AuthHandler
-	Agent     *handlers.AgentHandler
-	WebSocket *handlers.WebSocketHandler
-	OBS       *handlers.OBSHandler
-	Twitch    *handlers.TwitchHandler
-	YouTube   *handlers.YouTubeHandler
+	Auth       *handlers.AuthHandler
+	Agent      *handlers.AgentHandler
+	WebSocket  *handlers.WebSocketHandler
+	OBS        *handlers.OBSHandler
+	Twitch     *handlers.TwitchHandler
+	YouTube    *handlers.YouTubeHandler
+	Config     *handlers.ConfigHandler
+	Restart    *handlers.RestartHandler
+	Automation *handlers.AutomationHandler
+
+	// AgentLink bedient eingehende Agent-Verbindungen. Nil, wenn kein
+	// Agent-API-Key konfiguriert ist.
+	AgentLink *agentlink.Handler
 }
 
 func Routes(h *Handlers, jwtService *auth.JWTService) http.Handler {
@@ -76,6 +84,9 @@ func Routes(h *Handlers, jwtService *auth.JWTService) http.Handler {
 			r.Get("/agent/capabilities", h.Agent.GetCapabilities)
 			r.Get("/agent/info", h.Agent.GetInfo)
 
+			// Über den Link verbundene Agents
+			r.Get("/agents", h.Agent.ListAgents)
+
 			// OBS control endpoints
 			r.Get("/obs/status", h.OBS.GetStatus)
 			r.Get("/obs/scenes", h.OBS.GetScenes)
@@ -94,15 +105,43 @@ func Routes(h *Handlers, jwtService *auth.JWTService) http.Handler {
 			r.Get("/twitch/stats", h.Twitch.GetStats)
 			r.Patch("/twitch/stream", h.Twitch.UpdateStream)
 
+			// Twitch chat command endpoints
+			r.Get("/twitch/commands", h.Twitch.ListCommands)
+			r.Post("/twitch/commands", h.Twitch.CreateCommand)
+			r.Put("/twitch/commands/{name}", h.Twitch.UpdateCommand)
+			r.Delete("/twitch/commands/{name}", h.Twitch.DeleteCommand)
+			r.Post("/twitch/commands/exec", h.Twitch.ExecuteCommand)
+			r.Post("/twitch/chat/send", h.Twitch.SendMessage)
+
 			// YouTube endpoints
 			r.Get("/youtube/status", h.YouTube.GetStatus)
 			r.Get("/youtube/stats", h.YouTube.GetStats)
 			r.Patch("/youtube/stream", h.YouTube.UpdateStream)
+
+			// Config endpoints
+			r.Get("/config", h.Config.GetConfig)
+			r.Patch("/config", h.Config.UpdateConfig)
+
+			// Restart endpoint
+			r.Post("/restart", h.Restart.Restart)
+
+			// Automation rule endpoints
+			r.Get("/automation/rules", h.Automation.ListRules)
+			r.Post("/automation/rules", h.Automation.CreateRule)
+			r.Put("/automation/rules/{name}", h.Automation.UpdateRule)
+			r.Delete("/automation/rules/{name}", h.Automation.DeleteRule)
+			r.Post("/automation/rules/{name}/test", h.Automation.TestRule)
 		})
 	})
 
 	// WebSocket endpoint (protected with query param auth)
 	r.With(auth.WebSocketMiddleware(jwtService)).Get("/ws", h.WebSocket.HandleWebSocket)
+
+	// Agent link endpoint. Agents authentifizieren sich mit dem gemeinsamen
+	// API-Key, nicht mit einem Benutzer-JWT.
+	if h.AgentLink != nil {
+		r.Get("/ws/agent", h.AgentLink.ServeHTTP)
+	}
 
 	return r
 }

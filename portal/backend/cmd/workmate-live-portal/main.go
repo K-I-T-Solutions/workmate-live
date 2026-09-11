@@ -2,15 +2,19 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 
+	"kit.workmate/live-portal/internal/agentlink"
 	"kit.workmate/live-portal/internal/api"
 	"kit.workmate/live-portal/internal/api/handlers"
 	"kit.workmate/live-portal/internal/auth"
+	"kit.workmate/live-portal/internal/automation"
 	"kit.workmate/live-portal/internal/config"
 	"kit.workmate/live-portal/internal/services/agent"
 	"kit.workmate/live-portal/internal/services/obs"
@@ -30,6 +34,9 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
+	// Kontext für die langlebigen Hintergrunddienste
+	ctx, cancel := context.WithCancel(context.Background())
+
 	// Initialize user storage
 	userStore, err := storage.NewUserStore(cfg.Storage.Path)
 	if err != nil {
@@ -46,40 +53,114 @@ func main() {
 	// Initialize JWT service
 	jwtService := auth.NewJWTService(cfg.Auth.JWTSecret, cfg.Auth.TokenDuration)
 
-	// Initialize WebSocket hub
+	// Initialize WebSocket hub (Browser-Clients)
 	hub := websocket.NewHub()
 	go hub.Run()
 
-	// Initialize agent client
-	agentClient := agent.NewClient(cfg.Agent.URL, cfg.Agent.Timeout)
+	// Initialize automation engine
+	autoStore := automation.NewStore(cfg.Automation.RulesFile)
+	autoEngine := automation.NewEngine(autoStore, hub)
+	go autoEngine.Run()
 
-	// Initialize agent poller with callback to broadcast status via WebSocket
-	poller := agent.NewPoller(agentClient, cfg.Agent.PollingInterval, func(status *agent.Status) {
+	// handleOBSEvent verteilt ein OBS-Event an Browser-Clients und die
+	// Automation-Engine — unabhängig davon, ob es aus der direkten
+	// OBS-Verbindung oder von einem Agent stammt.
+	handleOBSEvent := func(event map[string]interface{}) {
 		hub.Broadcast(websocket.Message{
-			Type: websocket.MessageTypeAgentStatus,
-			Data: status,
+			Type: websocket.MessageTypeOBSEvent,
+			Data: event,
 		})
-	})
-	poller.Start()
 
-	// Initialize OBS client
-	obsClient := obs.NewClient(cfg.OBS.Host, cfg.OBS.Port, cfg.OBS.Password)
+		switch event["type"] {
+		case "scene_changed":
+			scene, _ := event["scene_name"].(string)
+			autoEngine.Send(automation.Event{
+				Type: "obs:scene_changed",
+				Vars: map[string]string{"scene": scene},
+			})
+		case "stream_state_changed":
+			if active, _ := event["active"].(bool); active {
+				autoEngine.Send(automation.Event{Type: "obs:stream_started", Vars: map[string]string{}})
+			} else {
+				autoEngine.Send(automation.Event{Type: "obs:stream_stopped", Vars: map[string]string{}})
+			}
+		}
+	}
 
-	// Try to connect to OBS (non-blocking)
-	if err := obsClient.Connect(); err != nil {
-		log.Printf("Warning: Failed to connect to OBS: %v", err)
-		log.Println("OBS features will be unavailable until connection is established")
-	} else {
-		log.Println("Successfully connected to OBS")
+	// Status-Cache für Agents, die ihren Status über den Link pushen
+	statusCache := agent.NewStatusCache()
 
-		// Set event callback to broadcast OBS events via WebSocket
-		obsClient.SetEventCallback(func(event interface{}) {
+	// Agent-Link: Agents bauen die Verbindung zum Portal auf. Damit lässt sich
+	// OBS auf einem entfernten Rechner steuern, ohne dort einen Port zu öffnen.
+	var (
+		linkHub     *agentlink.Hub
+		linkHandler *agentlink.Handler
+	)
+	if cfg.AgentLinkEnabled() {
+		linkHub = agentlink.NewHub(cfg.Agent.PrimaryID)
+		linkHub.SetEventHandler(func(agentID, event string, data json.RawMessage) {
+			switch event {
+			case agentlink.EventAgentStatus:
+				var status agent.Status
+				if err := json.Unmarshal(data, &status); err != nil {
+					log.Printf("Invalid agent status from %s: %v", agentID, err)
+					return
+				}
+				statusCache.Set(agentID, &status)
+				hub.Broadcast(websocket.Message{
+					Type: websocket.MessageTypeAgentStatus,
+					Data: &status,
+				})
+
+			case agentlink.EventOBS:
+				var obsEvent map[string]interface{}
+				if err := json.Unmarshal(data, &obsEvent); err != nil {
+					log.Printf("Invalid OBS event from %s: %v", agentID, err)
+					return
+				}
+				handleOBSEvent(obsEvent)
+			}
+		})
+
+		linkHandler = agentlink.NewHandler(linkHub, cfg.Agent.APIKey)
+		log.Println("Agent link enabled at /ws/agent")
+	}
+
+	// Agent-Polling per HTTP — nur sinnvoll, wenn der Agent direkt erreichbar
+	// ist. Im Link-Betrieb hinter NAT bleibt agent.url leer.
+	var poller *agent.Poller
+	var agentClient *agent.Client
+	if cfg.Agent.URL != "" {
+		agentClient = agent.NewClient(cfg.Agent.URL, cfg.Agent.Timeout)
+		poller = agent.NewPoller(agentClient, cfg.Agent.PollingInterval, func(status *agent.Status) {
 			hub.Broadcast(websocket.Message{
-				Type: websocket.MessageTypeOBSEvent,
-				Data: event,
+				Type: websocket.MessageTypeAgentStatus,
+				Data: status,
 			})
 		})
+		poller.Start()
+	} else {
+		log.Println("No agent URL configured, relying on agent link for status")
 	}
+
+	// OBS-Steuerung: direkt zum OBS-WebSocket oder über einen Agent.
+	var obsController obs.Controller
+	switch cfg.OBS.Mode {
+	case config.OBSModeAgent:
+		obsController = obs.NewRemoteController(linkHub, cfg.Agent.CommandTimeout)
+		log.Println("OBS control routed through agent link")
+
+	default:
+		obsDirect := obs.NewClient(cfg.OBS.Host, cfg.OBS.Port, cfg.OBS.Password, cfg.OBS.ReconnectDelay)
+		obsDirect.SetEventCallback(handleOBSEvent)
+		go obsDirect.Run(ctx)
+		obsController = obsDirect
+		log.Printf("OBS control connecting directly to %s:%d", cfg.OBS.Host, cfg.OBS.Port)
+	}
+
+	// Der Executor ist immer gesetzt: fehlt die Verbindung, meldet die Aktion
+	// das zur Laufzeit, statt die Regel stumm ins Leere laufen zu lassen.
+	autoEngine.SetOBSExecutor(obsController)
 
 	// Initialize Twitch client (if enabled)
 	var twitchClient *twitch.Client
@@ -89,6 +170,7 @@ func main() {
 			cfg.Twitch.ClientSecret,
 			cfg.Twitch.Channel,
 			cfg.Twitch.OAuthToken,
+			cfg.Twitch.CommandsFile,
 		)
 
 		if err := twitchClient.Connect(); err != nil {
@@ -96,8 +178,8 @@ func main() {
 			log.Println("Twitch features will be unavailable")
 		} else {
 			log.Println("Successfully connected to Twitch")
+			autoEngine.SetTwitchExecutor(twitchClient)
 
-			// Set event callback to broadcast Twitch events via WebSocket
 			twitchClient.SetEventCallback(func(event interface{}) {
 				eventMap := event.(map[string]interface{})
 				eventType := eventMap["type"].(string)
@@ -107,6 +189,8 @@ func main() {
 					msgType = websocket.MessageTypeTwitchChat
 				} else if eventType == "eventsub_event" {
 					msgType = websocket.MessageTypeTwitchEvent
+				} else if eventType == "command_executed" {
+					msgType = websocket.MessageTypeTwitchCommand
 				} else {
 					return
 				}
@@ -115,6 +199,13 @@ func main() {
 					Type: msgType,
 					Data: eventMap["data"],
 				})
+
+				// Route Twitch EventSub events to automation engine
+				if eventType == "eventsub_event" {
+					if esEvent, ok := eventMap["data"].(*twitch.EventSubEvent); ok {
+						autoEngine.Send(twitchEventToAutomation(esEvent))
+					}
+				}
 			})
 		}
 	}
@@ -152,12 +243,16 @@ func main() {
 
 	// Initialize handlers
 	h := &api.Handlers{
-		Auth:      handlers.NewAuthHandler(userStore, jwtService),
-		Agent:     handlers.NewAgentHandler(agentClient),
-		WebSocket: handlers.NewWebSocketHandler(hub),
-		OBS:       handlers.NewOBSHandler(obsClient),
-		Twitch:    handlers.NewTwitchHandler(twitchClient),
-		YouTube:   handlers.NewYouTubeHandler(youtubeClient),
+		Auth:       handlers.NewAuthHandler(userStore, jwtService),
+		Agent:      handlers.NewAgentHandler(agentClient, statusCache, linkHub),
+		WebSocket:  handlers.NewWebSocketHandler(hub),
+		OBS:        handlers.NewOBSHandler(obsController),
+		Twitch:     handlers.NewTwitchHandler(twitchClient),
+		YouTube:    handlers.NewYouTubeHandler(youtubeClient),
+		Config:     handlers.NewConfigHandler(cfg),
+		Restart:    handlers.NewRestartHandler(),
+		Automation: handlers.NewAutomationHandler(autoStore, autoEngine),
+		AgentLink:  linkHandler,
 	}
 
 	// Setup routes with JWT middleware
@@ -174,12 +269,15 @@ func main() {
 
 	log.Println("Stopping portal server")
 
-	// Stop poller
-	poller.Stop()
+	// Beendet OBS-Reconnect-Loop und alle weiteren Hintergrunddienste
+	cancel()
 
-	// Disconnect from OBS
-	if err := obsClient.Disconnect(); err != nil {
-		log.Printf("Error disconnecting from OBS: %v", err)
+	// Stop automation engine
+	autoEngine.Stop()
+
+	// Stop poller
+	if poller != nil {
+		poller.Stop()
 	}
 
 	// Disconnect from Twitch
@@ -197,9 +295,36 @@ func main() {
 	}
 
 	// Graceful shutdown
-	ctx, cancel := context.WithTimeout(context.Background(), cfg.Server.Timeouts.Shutdown)
-	defer cancel()
-	_ = server.Shutdown(ctx)
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), cfg.Server.Timeouts.Shutdown)
+	defer shutdownCancel()
+	_ = server.Shutdown(shutdownCtx)
 
 	log.Println("Portal server stopped")
+}
+
+// twitchEventToAutomation maps a Twitch EventSub event to an automation.Event with template vars
+func twitchEventToAutomation(esEvent *twitch.EventSubEvent) automation.Event {
+	vars := map[string]string{}
+
+	switch esEvent.Type {
+	case "follow":
+		if data, ok := esEvent.Data.(twitch.FollowEvent); ok {
+			vars["user"] = data.UserName
+		}
+		return automation.Event{Type: "twitch:follow", Vars: vars}
+	case "subscribe":
+		if data, ok := esEvent.Data.(twitch.SubscribeEvent); ok {
+			vars["user"] = data.UserName
+			vars["tier"] = data.Tier
+		}
+		return automation.Event{Type: "twitch:subscribe", Vars: vars}
+	case "raid":
+		if data, ok := esEvent.Data.(twitch.RaidEvent); ok {
+			vars["raider"] = data.FromUserName
+			vars["viewers"] = strconv.Itoa(data.Viewers)
+		}
+		return automation.Event{Type: "twitch:raid", Vars: vars}
+	}
+
+	return automation.Event{Type: "twitch:" + esEvent.Type, Vars: vars}
 }

@@ -1,18 +1,19 @@
 import type { OBSStatus, Scene, Source } from '@/types/obs'
+import { authFetch } from '@/lib/api'
 
 const API_BASE = '/api/obs'
 
 export const obsAPI = {
   // Get OBS status
   async getStatus(): Promise<OBSStatus> {
-    const response = await fetch(`${API_BASE}/status`)
+    const response = await authFetch(`${API_BASE}/status`)
     if (!response.ok) throw new Error('Failed to fetch OBS status')
     return response.json()
   },
 
   // Get all scenes
   async getScenes(): Promise<Scene[]> {
-    const response = await fetch(`${API_BASE}/scenes`)
+    const response = await authFetch(`${API_BASE}/scenes`)
     if (!response.ok) throw new Error('Failed to fetch scenes')
     const data = await response.json()
     return data.scenes
@@ -20,7 +21,7 @@ export const obsAPI = {
 
   // Switch to a scene
   async switchScene(sceneName: string): Promise<void> {
-    const response = await fetch(`${API_BASE}/scenes/switch`, {
+    const response = await authFetch(`${API_BASE}/scenes/switch`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ scene_name: sceneName }),
@@ -33,7 +34,7 @@ export const obsAPI = {
     const url = sceneName
       ? `${API_BASE}/sources?scene=${encodeURIComponent(sceneName)}`
       : `${API_BASE}/sources`
-    const response = await fetch(url)
+    const response = await authFetch(url)
     if (!response.ok) throw new Error('Failed to fetch sources')
     const data = await response.json()
     return data.sources
@@ -41,7 +42,7 @@ export const obsAPI = {
 
   // Toggle source visibility
   async toggleSource(sceneName: string, sourceName: string, visible: boolean): Promise<void> {
-    const response = await fetch(`${API_BASE}/sources/toggle`, {
+    const response = await authFetch(`${API_BASE}/sources/toggle`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ scene_name: sceneName, source_name: sourceName, visible }),
@@ -51,33 +52,33 @@ export const obsAPI = {
 
   // Streaming controls
   async startStreaming(): Promise<void> {
-    const response = await fetch(`${API_BASE}/streaming/start`, { method: 'POST' })
+    const response = await authFetch(`${API_BASE}/streaming/start`, { method: 'POST' })
     if (!response.ok) throw new Error('Failed to start streaming')
   },
 
   async stopStreaming(): Promise<void> {
-    const response = await fetch(`${API_BASE}/streaming/stop`, { method: 'POST' })
+    const response = await authFetch(`${API_BASE}/streaming/stop`, { method: 'POST' })
     if (!response.ok) throw new Error('Failed to stop streaming')
   },
 
   // Recording controls
   async startRecording(): Promise<void> {
-    const response = await fetch(`${API_BASE}/recording/start`, { method: 'POST' })
+    const response = await authFetch(`${API_BASE}/recording/start`, { method: 'POST' })
     if (!response.ok) throw new Error('Failed to start recording')
   },
 
   async stopRecording(): Promise<void> {
-    const response = await fetch(`${API_BASE}/recording/stop`, { method: 'POST' })
+    const response = await authFetch(`${API_BASE}/recording/stop`, { method: 'POST' })
     if (!response.ok) throw new Error('Failed to stop recording')
   },
 
   async pauseRecording(): Promise<void> {
-    const response = await fetch(`${API_BASE}/recording/pause`, { method: 'POST' })
+    const response = await authFetch(`${API_BASE}/recording/pause`, { method: 'POST' })
     if (!response.ok) throw new Error('Failed to pause recording')
   },
 
   async resumeRecording(): Promise<void> {
-    const response = await fetch(`${API_BASE}/recording/resume`, { method: 'POST' })
+    const response = await authFetch(`${API_BASE}/recording/resume`, { method: 'POST' })
     if (!response.ok) throw new Error('Failed to resume recording')
   },
 }

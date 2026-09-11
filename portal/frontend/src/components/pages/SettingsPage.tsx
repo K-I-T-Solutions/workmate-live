@@ -4,17 +4,23 @@ import { SettingsConnectionStatus } from '@/components/settings/SettingsConnecti
 import { SettingsSystemInfo } from '@/components/settings/SettingsSystemInfo'
 import { SettingsUserManagement } from '@/components/settings/SettingsUserManagement'
 import { SettingsAbout } from '@/components/settings/SettingsAbout'
+import { SettingsConfig } from '@/components/settings/SettingsConfig'
 
 export function SettingsPage() {
   return (
     <PageContainer title="Settings" subtitle="Konfiguration und System-Informationen">
-      <Tabs defaultValue="connections">
+      <Tabs defaultValue="config">
         <TabsList>
+          <TabsTrigger value="config">Konfiguration</TabsTrigger>
           <TabsTrigger value="connections">Verbindungen</TabsTrigger>
           <TabsTrigger value="system">System</TabsTrigger>
           <TabsTrigger value="account">Konto</TabsTrigger>
           <TabsTrigger value="about">Über</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="config">
+          <SettingsConfig />
+        </TabsContent>
 
         <TabsContent value="connections">
           <SettingsConnectionStatus />

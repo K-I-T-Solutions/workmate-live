@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -36,8 +36,8 @@ export function Login() {
         <Card className="border-border/50 shadow-lg shadow-primary/5">
           <CardHeader className="space-y-2">
             <div className="flex flex-col items-center gap-3 mb-2">
-              <img src="/logo-wm-live.png" className="w-20 h-20 object-contain" alt="" />
-              <img src="/sign-live.png" className="h-8 object-contain" alt="Workmate Live" />
+              <img src="/logo-wm-live.png" className="w-24 h-24 object-contain" alt="" />
+              <img src="/sign-live.png" className="h-14 object-contain max-w-xs" alt="Workmate Live" />
             </div>
             <CardDescription className="text-center text-muted-foreground">
               Sign in to access the streaming dashboard

@@ -1,0 +1,46 @@
+# Produktionsbetrieb auf workmate-01.
+#
+# Anders als docker-compose.yml wird hier nichts gebaut — die Images kommen
+# fertig aus der GitHub Container Registry (siehe .github/workflows/build-images.yml).
+#
+#   docker compose -f docker-compose.prod.yml pull
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Die Service-Namen sind bewusst eindeutig: core_network ist ein geteiltes
+# Netzwerk, in dem ein schlichtes "backend" bereits von workmate-access belegt ist.
+
+services:
+  workmate-live-backend:
+    image: ${BACKEND_IMAGE:-ghcr.io/k-i-t-solutions/workmate-live-backend:latest}
+    container_name: workmate_live_backend
+    volumes:
+      - backend_data:/app/data
+      - ./portal/backend/config/portal.docker.yaml:/app/config/portal.yaml:ro
+      - ./portal/backend/config/rules.yaml:/app/config/rules.yaml
+    networks:
+      - core_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  workmate-live-frontend:
+    image: ${FRONTEND_IMAGE:-ghcr.io/k-i-t-solutions/workmate-live-frontend:latest}
+    container_name: workmate_live_ui
+    hostname: workmate_live_ui
+    depends_on:
+      workmate-live-backend:
+        condition: service_healthy
+    networks:
+      - core_network
+    restart: unless-stopped
+
+volumes:
+  backend_data:
+
+networks:
+  core_network:
+    external: true

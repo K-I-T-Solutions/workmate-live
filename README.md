@@ -35,12 +35,17 @@ workmate_live/
   - Audio-System-Status (PipeWire)
   - Video-Geräte-Scan (`/dev/video*`)
   - OBS Studio-Prozesserkennung
+- **OBS-Fernsteuerung**: Steuert die lokale OBS-Instanz im Auftrag des Portals
+- **Portal-Link**: Baut die Verbindung zum Portal selbst auf — funktioniert
+  hinter NAT und Firewall, ohne eingehenden Port auf dem Streaming-Rechner
 - **REST API** auf `127.0.0.1:8787`
 - Konfigurierbare Polling-Intervalle
 
 ### Portal Backend
-- **Agent-Integration**: Echtzeit-Status vom Systemagent
-- **OBS Studio WebSocket**: Vollständige OBS-Steuerung
+- **Agent-Integration**: Echtzeit-Status vom Systemagent, per HTTP-Polling oder
+  über den Agent-Link
+- **OBS Studio WebSocket**: Vollständige OBS-Steuerung — direkt oder über einen
+  Agent auf einem entfernten Rechner
 - **Streaming-Plattformen**:
   - Twitch-Integration
   - YouTube-Integration
@@ -152,7 +157,7 @@ health:
     obs: true
 ```
 
-### Portal Backend (`portal/config/portal.yaml`)
+### Portal Backend (`portal/backend/config/portal.yaml`)
 
 ```yaml
 server:
@@ -171,11 +176,98 @@ agent:
   polling_interval: 3s
 
 obs:
+  mode: direct
   host: "192.168.178.100"
   port: 4455
   password: "your-obs-password"
   auto_reconnect: true
 ```
+
+## OBS auf einem entfernten Rechner
+
+Es gibt zwei Wege, OBS zu erreichen. Der Modus steht in `obs.mode` und lässt
+sich auch in der Portal-UI unter **Einstellungen → OBS** umschalten.
+
+### `direct` (Standard)
+
+Das Portal verbindet sich selbst zum OBS-WebSocket. Einfach einzurichten, aber
+OBS muss vom Portal aus erreichbar sein und der OBS-WebSocket kennt kein TLS —
+also nur im LAN oder über ein VPN (WireGuard, Tailscale) verwenden.
+
+### `agent`
+
+Der Agent läuft auf dem Streaming-Rechner, verbindet sich dort lokal mit OBS
+und baut **von sich aus** eine WebSocket-Verbindung zum Portal auf. Das Portal
+schickt Kommandos durch diese Verbindung zurück.
+
+Vorteile gegenüber `direct`:
+
+- Der Streaming-Rechner braucht **keinen eingehenden Port** — funktioniert
+  hinter NAT und Firewall.
+- Das OBS-Passwort bleibt auf dem Streaming-Rechner.
+- Die Verbindung nutzt das TLS des Portals (`https://` → `wss://`).
+- Mehrere Rechner können sich gleichzeitig verbinden.
+
+**Portal** (`portal/backend/config/portal.yaml`):
+
+```yaml
+agent:
+  # Leer lassen: ein Agent hinter NAT kann nicht gepollt werden,
+  # sein Status kommt über den Link.
+  url: ""
+  # Gemeinsames Geheimnis, z. B. via: openssl rand -hex 32
+  api_key: "SHARED_SECRET"
+  # Welcher Agent OBS steuert. Leer = erster verbundener Agent mit OBS.
+  primary_id: ""
+  command_timeout: 10s
+
+obs:
+  mode: agent
+```
+
+**Agent** (`agent/config.yaml`) auf dem Streaming-Rechner:
+
+```yaml
+obs:
+  enabled: true
+  host: "127.0.0.1"    # OBS bleibt auf localhost
+  port: 4455
+  password: "your-obs-password"
+  reconnect_delay: 5s
+
+portal:
+  enabled: true
+  url: "https://portal.example.com"
+  api_key: "SHARED_SECRET"   # identisch zu agent.api_key im Portal
+  agent_id: ""               # leer = Hostname
+  retry_attempts: 3
+  retry_delay: 5s
+```
+
+Der Agent hängt `/ws/agent` selbst an die URL an und wandelt `http://` bzw.
+`https://` nach `ws://` bzw. `wss://` um.
+
+Verbundene Agents stehen unter `GET /api/agents` und in der UI unter
+**Einstellungen → Agent**. Beide Seiten verbinden nach einem Abriss selbständig
+neu (der Agent mit wachsendem Backoff, gedeckelt auf 2 Minuten).
+
+> **Reverse Proxy**: `/ws/agent` ist eine WebSocket-Route. Ein davorliegender
+> Proxy muss die Header `Upgrade` und `Connection` durchreichen und braucht
+> ein großzügiges Read-Timeout, sonst wird die Verbindung im Leerlauf gekappt.
+
+## Deployment
+
+Produktivbetrieb läuft über GitHub Actions: Der Workflow baut Backend- und
+Frontend-Image, schiebt sie in die GitHub Container Registry und rollt sie per
+SSH auf dem Server aus. Auf dem Server wird nichts gebaut.
+
+```bash
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d
+```
+
+Vollständige Anleitung inklusive DNS, Caddy und Agent-Einrichtung:
+**[docs/deployment.md](docs/deployment.md)**
 
 ## API-Endpunkte
 
@@ -187,7 +279,9 @@ obs:
 ### Portal API (`http://0.0.0.0:8080`)
 - `POST /auth/login` - Authentifizierung
 - `GET /agent/status` - Agent-Status abrufen
-- `WS /ws` - WebSocket für Echtzeit-Updates
+- `GET /agents` - Über den Link verbundene Agents
+- `WS /ws` - WebSocket für Echtzeit-Updates (Browser, JWT)
+- `WS /ws/agent` - Agent-Link (Agents, API-Key)
 - `POST /obs/*` - OBS Studio-Steuerung
 - `GET /twitch/*` - Twitch-Integration
 - `GET /youtube/*` - YouTube-Integration

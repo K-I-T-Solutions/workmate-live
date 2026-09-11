@@ -42,9 +42,9 @@ export function Sidebar() {
       {/* Logo / Brand */}
       <div className={cn('flex items-center h-12 px-3 border-b border-border/50', sidebarCollapsed ? 'justify-center' : 'gap-2')}>
         {sidebarCollapsed ? (
-          <img src="/logo-wm-live.png" className="w-7 h-7 object-contain" alt="" />
+          <img src="/logo-wm-live.png" className="w-8 h-8 object-contain" alt="" />
         ) : (
-          <img src="/sign-live.png" className="h-6 object-contain" alt="Workmate Live" />
+          <img src="/sign-live.png" className="h-9 object-contain max-w-full" alt="Workmate Live" />
         )}
         <button
           onClick={toggleSidebar}

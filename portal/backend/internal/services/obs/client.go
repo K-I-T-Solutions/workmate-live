@@ -1,8 +1,11 @@
 package obs
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"sync"
+	"time"
 
 	"github.com/andreykaipov/goobs"
 	"github.com/andreykaipov/goobs/api/events"
@@ -12,70 +15,144 @@ import (
 	"github.com/andreykaipov/goobs/api/requests/stream"
 )
 
-// Client wraps the goobs client for OBS WebSocket communication
+// ErrNotConnected wird zurückgegeben, wenn eine Anfrage ohne stehende
+// OBS-Verbindung abgesetzt wird.
+var ErrNotConnected = fmt.Errorf("not connected to OBS")
+
+// Client spricht direkt mit dem OBS-WebSocket und hält die Verbindung über
+// einen Reconnect-Loop offen. Für OBS auf einem entfernten Rechner ist
+// stattdessen RemoteController vorgesehen, der über einen Agent geht.
 type Client struct {
-	client        *goobs.Client
-	host          string
-	port          int
-	password      string
-	connected     bool
-	eventCallback func(interface{})
+	host           string
+	port           int
+	password       string
+	reconnectDelay time.Duration
+
+	mu        sync.RWMutex
+	client    *goobs.Client
+	connected bool
+
+	cbMu          sync.RWMutex
+	eventCallback func(map[string]interface{})
 }
 
-// NewClient creates a new OBS client
-func NewClient(host string, port int, password string) *Client {
+// NewClient creates a new OBS client speaking directly to the OBS WebSocket
+func NewClient(host string, port int, password string, reconnectDelay time.Duration) *Client {
+	if reconnectDelay <= 0 {
+		reconnectDelay = 5 * time.Second
+	}
+
 	return &Client{
-		host:     host,
-		port:     port,
-		password: password,
+		host:           host,
+		port:           port,
+		password:       password,
+		reconnectDelay: reconnectDelay,
 	}
 }
 
-// Connect establishes connection to OBS WebSocket
-func (c *Client) Connect() error {
+// SetEventCallback sets the callback invoked for every translated OBS event
+func (c *Client) SetEventCallback(cb func(map[string]interface{})) {
+	c.cbMu.Lock()
+	defer c.cbMu.Unlock()
+	c.eventCallback = cb
+}
+
+func (c *Client) emit(event map[string]interface{}) {
+	c.cbMu.RLock()
+	cb := c.eventCallback
+	c.cbMu.RUnlock()
+
+	if cb != nil {
+		cb(event)
+	}
+}
+
+// Run hält die OBS-Verbindung bis zum Abbruch des Kontexts offen und verbindet
+// nach einem Abriss automatisch neu. Blockiert; per Goroutine starten.
+func (c *Client) Run(ctx context.Context) {
+	for {
+		if err := c.connect(); err != nil {
+			log.Printf("OBS: connect failed: %v (retry in %s)", err, c.reconnectDelay)
+		} else {
+			log.Printf("OBS: connected to %s:%d", c.host, c.port)
+			c.emit(map[string]interface{}{"type": "connection_changed", "connected": true})
+
+			// Blockiert, bis die Verbindung abreißt.
+			c.readEvents(ctx)
+
+			c.setDisconnected()
+			c.emit(map[string]interface{}{"type": "connection_changed", "connected": false})
+			log.Printf("OBS: connection lost")
+		}
+
+		select {
+		case <-ctx.Done():
+			c.Disconnect()
+			return
+		case <-time.After(c.reconnectDelay):
+		}
+	}
+}
+
+func (c *Client) connect() error {
 	addr := fmt.Sprintf("%s:%d", c.host, c.port)
 
 	client, err := goobs.New(addr, goobs.WithPassword(c.password))
 	if err != nil {
-		return fmt.Errorf("failed to connect to OBS: %w", err)
+		return err
 	}
 
+	c.mu.Lock()
 	c.client = client
 	c.connected = true
+	c.mu.Unlock()
 
-	// Start listening for events
-	go c.listenForEvents()
-
-	log.Printf("Connected to OBS at %s", addr)
 	return nil
+}
+
+func (c *Client) setDisconnected() {
+	c.mu.Lock()
+	if c.client != nil {
+		_ = c.client.Disconnect()
+	}
+	c.client = nil
+	c.connected = false
+	c.mu.Unlock()
 }
 
 // Disconnect closes the OBS WebSocket connection
 func (c *Client) Disconnect() error {
-	if c.client != nil {
-		c.connected = false
-		return c.client.Disconnect()
-	}
+	c.setDisconnected()
 	return nil
 }
 
 // IsConnected returns the connection status
 func (c *Client) IsConnected() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.connected
 }
 
-// SetEventCallback sets the callback function for OBS events
-func (c *Client) SetEventCallback(callback func(interface{})) {
-	c.eventCallback = callback
+// conn liefert den aktiven goobs-Client oder ErrNotConnected.
+func (c *Client) conn() (*goobs.Client, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if !c.connected || c.client == nil {
+		return nil, ErrNotConnected
+	}
+
+	return c.client, nil
 }
 
 // GetVersion returns OBS version information
 func (c *Client) GetVersion() (string, error) {
-	if !c.connected {
-		return "", fmt.Errorf("not connected to OBS")
+	client, err := c.conn()
+	if err != nil {
+		return "", err
 	}
 
-	version, err := c.client.General.GetVersion()
+	version, err := client.General.GetVersion()
 	if err != nil {
 		return "", err
 	}
@@ -85,16 +162,17 @@ func (c *Client) GetVersion() (string, error) {
 
 // GetScenes returns all available scenes
 func (c *Client) GetScenes() ([]Scene, error) {
-	if !c.connected {
-		return nil, fmt.Errorf("not connected to OBS")
-	}
-
-	resp, err := c.client.Scenes.GetSceneList()
+	client, err := c.conn()
 	if err != nil {
 		return nil, err
 	}
 
-	var sceneList []Scene
+	resp, err := client.Scenes.GetSceneList()
+	if err != nil {
+		return nil, err
+	}
+
+	sceneList := make([]Scene, 0, len(resp.Scenes))
 	for i, scene := range resp.Scenes {
 		sceneList = append(sceneList, Scene{
 			Name:      scene.SceneName,
@@ -109,11 +187,12 @@ func (c *Client) GetScenes() ([]Scene, error) {
 
 // GetCurrentScene returns the current active scene
 func (c *Client) GetCurrentScene() (string, error) {
-	if !c.connected {
-		return "", fmt.Errorf("not connected to OBS")
+	client, err := c.conn()
+	if err != nil {
+		return "", err
 	}
 
-	resp, err := c.client.Scenes.GetCurrentProgramScene()
+	resp, err := client.Scenes.GetCurrentProgramScene()
 	if err != nil {
 		return "", err
 	}
@@ -123,31 +202,33 @@ func (c *Client) GetCurrentScene() (string, error) {
 
 // SwitchScene switches to a different scene
 func (c *Client) SwitchScene(sceneName string) error {
-	if !c.connected {
-		return fmt.Errorf("not connected to OBS")
+	client, err := c.conn()
+	if err != nil {
+		return err
 	}
 
-	_, err := c.client.Scenes.SetCurrentProgramScene(&scenes.SetCurrentProgramSceneParams{
+	_, err = client.Scenes.SetCurrentProgramScene(&scenes.SetCurrentProgramSceneParams{
 		SceneName: &sceneName,
 	})
 
 	return err
 }
 
-// GetSources returns all sources in the current scene
+// GetSources returns all sources in the given scene
 func (c *Client) GetSources(sceneName string) ([]Source, error) {
-	if !c.connected {
-		return nil, fmt.Errorf("not connected to OBS")
+	client, err := c.conn()
+	if err != nil {
+		return nil, err
 	}
 
-	resp, err := c.client.SceneItems.GetSceneItemList(&sceneitems.GetSceneItemListParams{
+	resp, err := client.SceneItems.GetSceneItemList(&sceneitems.GetSceneItemListParams{
 		SceneName: &sceneName,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	var sourceList []Source
+	sourceList := make([]Source, 0, len(resp.SceneItems))
 	for _, item := range resp.SceneItems {
 		sourceList = append(sourceList, Source{
 			Name:    item.SourceName,
@@ -161,12 +242,12 @@ func (c *Client) GetSources(sceneName string) ([]Source, error) {
 
 // ToggleSourceVisibility toggles the visibility of a source
 func (c *Client) ToggleSourceVisibility(sceneName, sourceName string, visible bool) error {
-	if !c.connected {
-		return fmt.Errorf("not connected to OBS")
+	client, err := c.conn()
+	if err != nil {
+		return err
 	}
 
-	// Get scene item ID first
-	items, err := c.client.SceneItems.GetSceneItemList(&sceneitems.GetSceneItemListParams{
+	items, err := client.SceneItems.GetSceneItemList(&sceneitems.GetSceneItemListParams{
 		SceneName: &sceneName,
 	})
 	if err != nil {
@@ -186,7 +267,7 @@ func (c *Client) ToggleSourceVisibility(sceneName, sourceName string, visible bo
 		return fmt.Errorf("source not found: %s", sourceName)
 	}
 
-	_, err = c.client.SceneItems.SetSceneItemEnabled(&sceneitems.SetSceneItemEnabledParams{
+	_, err = client.SceneItems.SetSceneItemEnabled(&sceneitems.SetSceneItemEnabledParams{
 		SceneName:        &sceneName,
 		SceneItemId:      itemID,
 		SceneItemEnabled: &visible,
@@ -197,50 +278,54 @@ func (c *Client) ToggleSourceVisibility(sceneName, sourceName string, visible bo
 
 // GetStreamStatus returns the current streaming status
 func (c *Client) GetStreamStatus() (*StreamStatus, error) {
-	if !c.connected {
-		return nil, fmt.Errorf("not connected to OBS")
+	client, err := c.conn()
+	if err != nil {
+		return nil, err
 	}
 
-	resp, err := c.client.Stream.GetStreamStatus()
+	resp, err := client.Stream.GetStreamStatus()
 	if err != nil {
 		return nil, err
 	}
 
 	return &StreamStatus{
-		Active:        resp.OutputActive,
-		Reconnecting:  resp.OutputReconnecting,
-		Duration:      int64(resp.OutputDuration) / 1000, // Convert ms to seconds
-		Bytes:         int64(resp.OutputBytes),
+		Active:       resp.OutputActive,
+		Reconnecting: resp.OutputReconnecting,
+		Duration:     int64(resp.OutputDuration) / 1000, // ms -> s
+		Bytes:        int64(resp.OutputBytes),
 	}, nil
 }
 
 // StartStreaming starts the OBS stream
 func (c *Client) StartStreaming() error {
-	if !c.connected {
-		return fmt.Errorf("not connected to OBS")
+	client, err := c.conn()
+	if err != nil {
+		return err
 	}
 
-	_, err := c.client.Stream.StartStream(&stream.StartStreamParams{})
+	_, err = client.Stream.StartStream(&stream.StartStreamParams{})
 	return err
 }
 
 // StopStreaming stops the OBS stream
 func (c *Client) StopStreaming() error {
-	if !c.connected {
-		return fmt.Errorf("not connected to OBS")
+	client, err := c.conn()
+	if err != nil {
+		return err
 	}
 
-	_, err := c.client.Stream.StopStream(&stream.StopStreamParams{})
+	_, err = client.Stream.StopStream(&stream.StopStreamParams{})
 	return err
 }
 
 // GetRecordStatus returns the current recording status
 func (c *Client) GetRecordStatus() (*RecordingStatus, error) {
-	if !c.connected {
-		return nil, fmt.Errorf("not connected to OBS")
+	client, err := c.conn()
+	if err != nil {
+		return nil, err
 	}
 
-	resp, err := c.client.Record.GetRecordStatus()
+	resp, err := client.Record.GetRecordStatus()
 	if err != nil {
 		return nil, err
 	}
@@ -248,54 +333,58 @@ func (c *Client) GetRecordStatus() (*RecordingStatus, error) {
 	return &RecordingStatus{
 		Active:   resp.OutputActive,
 		Paused:   resp.OutputPaused,
-		Duration: int64(resp.OutputDuration) / 1000, // Convert ms to seconds
+		Duration: int64(resp.OutputDuration) / 1000, // ms -> s
 		Bytes:    int64(resp.OutputBytes),
 	}, nil
 }
 
 // StartRecording starts OBS recording
 func (c *Client) StartRecording() error {
-	if !c.connected {
-		return fmt.Errorf("not connected to OBS")
+	client, err := c.conn()
+	if err != nil {
+		return err
 	}
 
-	_, err := c.client.Record.StartRecord(&record.StartRecordParams{})
+	_, err = client.Record.StartRecord(&record.StartRecordParams{})
 	return err
 }
 
 // StopRecording stops OBS recording
 func (c *Client) StopRecording() error {
-	if !c.connected {
-		return fmt.Errorf("not connected to OBS")
+	client, err := c.conn()
+	if err != nil {
+		return err
 	}
 
-	_, err := c.client.Record.StopRecord(&record.StopRecordParams{})
+	_, err = client.Record.StopRecord(&record.StopRecordParams{})
 	return err
 }
 
 // PauseRecording pauses OBS recording
 func (c *Client) PauseRecording() error {
-	if !c.connected {
-		return fmt.Errorf("not connected to OBS")
+	client, err := c.conn()
+	if err != nil {
+		return err
 	}
 
-	_, err := c.client.Record.PauseRecord(&record.PauseRecordParams{})
+	_, err = client.Record.PauseRecord(&record.PauseRecordParams{})
 	return err
 }
 
 // ResumeRecording resumes OBS recording
 func (c *Client) ResumeRecording() error {
-	if !c.connected {
-		return fmt.Errorf("not connected to OBS")
+	client, err := c.conn()
+	if err != nil {
+		return err
 	}
 
-	_, err := c.client.Record.ResumeRecord(&record.ResumeRecordParams{})
+	_, err = client.Record.ResumeRecord(&record.ResumeRecordParams{})
 	return err
 }
 
 // GetStatus returns the overall OBS status
 func (c *Client) GetStatus() (*OBSStatus, error) {
-	if !c.connected {
+	if !c.IsConnected() {
 		return &OBSStatus{Connected: false}, nil
 	}
 
@@ -311,13 +400,13 @@ func (c *Client) GetStatus() (*OBSStatus, error) {
 
 	streamStatus, err := c.GetStreamStatus()
 	if err != nil {
-		log.Printf("Failed to get stream status: %v", err)
+		log.Printf("OBS: failed to get stream status: %v", err)
 		streamStatus = &StreamStatus{}
 	}
 
 	recordStatus, err := c.GetRecordStatus()
 	if err != nil {
-		log.Printf("Failed to get record status: %v", err)
+		log.Printf("OBS: failed to get record status: %v", err)
 		recordStatus = &RecordingStatus{}
 	}
 
@@ -330,45 +419,49 @@ func (c *Client) GetStatus() (*OBSStatus, error) {
 	}, nil
 }
 
-// listenForEvents listens for OBS events and triggers callbacks
-func (c *Client) listenForEvents() {
-	if c.client == nil {
+// readEvents übersetzt OBS-Events in das Portal-Format und blockiert, bis der
+// Event-Channel schließt (Verbindungsabriss) oder der Kontext abgebrochen wird.
+func (c *Client) readEvents(ctx context.Context) {
+	c.mu.RLock()
+	client := c.client
+	c.mu.RUnlock()
+
+	if client == nil {
 		return
 	}
 
-	for event := range c.client.IncomingEvents {
-		if !c.connected {
-			break
-		}
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case event, ok := <-client.IncomingEvents:
+			if !ok {
+				return
+			}
 
-		// Only broadcast if we have a callback
-		if c.eventCallback != nil {
 			switch e := event.(type) {
 			case *events.CurrentProgramSceneChanged:
-				c.eventCallback(map[string]interface{}{
+				c.emit(map[string]interface{}{
 					"type":       "scene_changed",
 					"scene_name": e.SceneName,
 				})
 			case *events.StreamStateChanged:
-				c.eventCallback(map[string]interface{}{
+				c.emit(map[string]interface{}{
 					"type":   "stream_state_changed",
 					"active": e.OutputActive,
 				})
 			case *events.RecordStateChanged:
-				c.eventCallback(map[string]interface{}{
+				c.emit(map[string]interface{}{
 					"type":   "record_state_changed",
 					"active": e.OutputActive,
 				})
 			case *events.SceneItemEnableStateChanged:
-				c.eventCallback(map[string]interface{}{
-					"type":         "source_visibility_changed",
-					"scene_name":   e.SceneName,
-					"source_name":  e.SceneItemId,
-					"visible":      e.SceneItemEnabled,
+				c.emit(map[string]interface{}{
+					"type":          "source_visibility_changed",
+					"scene_name":    e.SceneName,
+					"scene_item_id": e.SceneItemId,
+					"visible":       e.SceneItemEnabled,
 				})
-			default:
-				// Log other events for debugging
-				log.Printf("OBS Event: %T", e)
 			}
 		}
 	}

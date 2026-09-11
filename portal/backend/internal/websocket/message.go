@@ -8,11 +8,13 @@ type Message struct {
 
 // Message types
 const (
-	MessageTypeAgentStatus = "agent_status"
-	MessageTypeOBSEvent    = "obs_event"
-	MessageTypeTwitchChat  = "twitch_chat"
-	MessageTypeTwitchEvent = "twitch_event"
-	MessageTypeYouTubeChat = "youtube_chat"
-	MessageTypePing        = "ping"
-	MessageTypePong        = "pong"
+	MessageTypeAgentStatus     = "agent_status"
+	MessageTypeOBSEvent        = "obs_event"
+	MessageTypeTwitchChat      = "twitch_chat"
+	MessageTypeTwitchEvent     = "twitch_event"
+	MessageTypeYouTubeChat     = "youtube_chat"
+	MessageTypeTwitchCommand   = "twitch_command"
+	MessageTypeAutomationFired = "automation_fired"
+	MessageTypePing            = "ping"
+	MessageTypePong            = "pong"
 )

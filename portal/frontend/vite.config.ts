@@ -11,19 +11,17 @@ export default defineConfig({
     },
   },
   server: {
-    host: '0.0.0.0', // Listen on all network interfaces
-    port: 5174,
+    host: '0.0.0.0',
+    port: 5173,
     strictPort: false,
-    hmr: {
-      host: '192.168.178.100', // Your server IP for HMR
-    },
+    allowedHosts: true,
     proxy: {
       '/api': {
-        target: 'http://192.168.178.100:8080',
+        target: process.env.VITE_API_TARGET || 'http://localhost:8080',
         changeOrigin: true,
       },
       '/ws': {
-        target: 'ws://192.168.178.100:8080',
+        target: process.env.VITE_WS_TARGET || 'ws://localhost:8080',
         ws: true,
         changeOrigin: true,
       },

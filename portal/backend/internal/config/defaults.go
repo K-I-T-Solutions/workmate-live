@@ -26,8 +26,12 @@ func Default() *Config {
 			URL:             "http://127.0.0.1:8787",
 			PollingInterval: 3 * time.Second,
 			Timeout:         5 * time.Second,
+			APIKey:          "",
+			PrimaryID:       "",
+			CommandTimeout:  10 * time.Second,
 		},
 		OBS: OBSConfig{
+			Mode:           OBSModeDirect,
 			Host:           "localhost",
 			Port:           4455,
 			Password:       "WebSocket2025!",
@@ -40,6 +44,7 @@ func Default() *Config {
 			ClientSecret: "",
 			Channel:      "",
 			OAuthToken:   "",
+			CommandsFile: "config/commands.yaml",
 		},
 		YouTube: YouTubeConfig{
 			Enabled:      false,
@@ -47,6 +52,9 @@ func Default() *Config {
 			ChannelID:    "",
 			ClientID:     "",
 			ClientSecret: "",
+		},
+		Automation: AutomationConfig{
+			RulesFile: "config/rules.yaml",
 		},
 		Storage: StorageConfig{
 			Type: "sqlite",

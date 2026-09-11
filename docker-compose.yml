@@ -1,5 +1,5 @@
 services:
-  backend:
+  workmate-live-backend:
     container_name: workmate_live_backend
     build:
       context: ./portal/backend
@@ -19,13 +19,14 @@ services:
       retries: 3
       start_period: 10s
 
-  frontend:
+  workmate-live-frontend:
     container_name: workmate_live_ui
+    hostname: workmate_live_ui
     build:
       context: ./portal/frontend
       dockerfile: Dockerfile
     depends_on:
-      backend:
+      workmate-live-backend:
         condition: service_healthy
     networks:
       - core_network

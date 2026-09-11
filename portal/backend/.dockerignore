@@ -1,0 +1,6 @@
+*.db
+*.sqlite
+*.log
+portal.db
+workmate-live-portal
+config/portal.yaml

@@ -1,10 +1,10 @@
 import type { LoginRequest, LoginResponse, VerifyResponse } from '@/types/auth'
 
-const API_BASE = 'http://localhost:8080'
+const API_BASE = '/api/auth'
 
 export const authAPI = {
   async login(credentials: LoginRequest): Promise<LoginResponse> {
-    const res = await fetch(`${API_BASE}/api/auth/login`, {
+    const res = await fetch(`${API_BASE}/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(credentials),
@@ -19,7 +19,7 @@ export const authAPI = {
   },
 
   async logout(token: string): Promise<void> {
-    const res = await fetch(`${API_BASE}/api/auth/logout`, {
+    const res = await fetch(`${API_BASE}/logout`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -32,7 +32,7 @@ export const authAPI = {
   },
 
   async verify(token: string): Promise<VerifyResponse> {
-    const res = await fetch(`${API_BASE}/api/auth/verify`, {
+    const res = await fetch(`${API_BASE}/verify`, {
       headers: {
         'Authorization': `Bearer ${token}`,
       },

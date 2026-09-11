@@ -18,6 +18,8 @@ vendor/
 # Configuration files (contain secrets)
 agent/config.yaml
 portal/config/portal.yaml
+portal/backend/config/portal.yaml
+portal/backend/config/portal.docker.yaml
 *.env
 *.env.local
 

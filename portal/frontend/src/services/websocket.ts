@@ -2,11 +2,13 @@ import type { AgentStatus } from '@/types/agent'
 import type { OBSEvent } from '@/types/obs'
 import type { ChatMessage as TwitchChatMessage, TwitchEvent } from '@/types/twitch'
 import type { ChatMessage as YouTubeChatMessage } from '@/types/youtube'
+import type { FiredEvent } from '@/types/automation'
 import { useAgentStore } from '@/store/agentStore'
 import { useAuthStore } from '@/store/authStore'
 import { useOBSStore } from '@/store/obsStore'
 import { useTwitchStore } from '@/store/twitchStore'
 import { useYouTubeStore } from '@/store/youtubeStore'
+import { useAutomationStore } from '@/store/automationStore'
 
 export interface WebSocketMessage {
   type: string
@@ -20,7 +22,7 @@ class WebSocketService {
 
   connect() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const hostname = window.location.hostname
+    const host = window.location.host
 
     // Get token from auth store
     const token = useAuthStore.getState().token
@@ -30,8 +32,8 @@ class WebSocketService {
 
     // Add token as query parameter
     const wsUrl = token
-      ? `${protocol}//${hostname}:8080/ws?token=${encodeURIComponent(token)}`
-      : `${protocol}//${hostname}:8080/ws`
+      ? `${protocol}//${host}/ws?token=${encodeURIComponent(token)}`
+      : `${protocol}//${host}/ws`
 
     this.ws = new WebSocket(wsUrl)
 
@@ -81,6 +83,9 @@ class WebSocketService {
         break
       case 'youtube_chat':
         useYouTubeStore.getState().addChatMessage(message.data as YouTubeChatMessage)
+        break
+      case 'automation_fired':
+        useAutomationStore.getState().addFiredEvent(message.data as FiredEvent)
         break
       default:
         console.log('Unknown message type:', message.type)

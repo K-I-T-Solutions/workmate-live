@@ -1,0 +1,16 @@
+[Unit]
+Description=Workmate Live Agent - System Health Monitor
+After=network.target
+
+[Service]
+Type=simple
+User=einfachnurphu
+Group=einfachnurphu
+WorkingDirectory=/home/einfachnurphu/Dokumente/K.I.T/1_Projects/workmate_live/agent
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+ExecStart=/home/einfachnurphu/Dokumente/K.I.T/1_Projects/workmate_live/agent/workmate-live-agent --config /home/einfachnurphu/Dokumente/K.I.T/1_Projects/workmate_live/agent/config.yaml
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -23,6 +23,13 @@ func Default() *Config {
 				OBS:   true,
 			},
 		},
+		OBS: OBSConfig{
+			Enabled:        false,
+			Host:           "127.0.0.1",
+			Port:           4455,
+			Password:       "",
+			ReconnectDelay: 5 * time.Second,
+		},
 		Portal: PortalConfig{
 			Enabled:       false,
 			URL:           "",

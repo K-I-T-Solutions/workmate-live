@@ -63,3 +63,29 @@ export interface UpdateStreamRequest {
   game_id?: string
   game_name?: string
 }
+
+export interface CommandInfo {
+  name: string
+  description: string
+  mod_only: boolean
+  builtin: boolean
+  response: string
+  enabled: boolean
+  cooldown: number // seconds
+  count: number
+}
+
+export interface CreateCommandRequest {
+  name: string
+  description: string
+  response: string
+  mod_only: boolean
+  cooldown: number
+  enabled: boolean
+}
+
+export interface CommandResult {
+  command: string
+  response: string
+  success: boolean
+}

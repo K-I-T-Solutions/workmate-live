@@ -8,10 +8,13 @@ import (
 )
 
 type OBSHandler struct {
-	client *obs.Client
+	// client ist entweder die direkte OBS-Verbindung oder ein
+	// RemoteController, der über einen Agent geht — die Handler sehen
+	// keinen Unterschied.
+	client obs.Controller
 }
 
-func NewOBSHandler(client *obs.Client) *OBSHandler {
+func NewOBSHandler(client obs.Controller) *OBSHandler {
 	return &OBSHandler{
 		client: client,
 	}

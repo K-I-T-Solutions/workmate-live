@@ -1,0 +1,150 @@
+name: Build & Push Images
+
+# Baut Backend- und Frontend-Image und schiebt sie in die GitHub Container
+# Registry. Der Server zieht die fertigen Images nur noch — dort wird nichts
+# mehr gebaut.
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    # Dokumentation und lokale Configs lösen keinen Build aus.
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: 'Nach dem Build auf workmate-01 ausrollen'
+        type: boolean
+        default: false
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: backend
+            context: ./portal/backend
+          - name: frontend
+            context: ./portal/frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Der Image-Pfad muss kleingeschrieben sein; die Organisation
+      # "K-I-T-Solutions" enthält Großbuchstaben.
+      - name: Image-Namen bestimmen
+        id: image
+        run: echo "name=${REGISTRY}/${GITHUB_REPOSITORY,,}-${{ matrix.name }}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: An ghcr.io anmelden
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tags und Labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.image.outputs.name }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,format=long
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Bauen und pushen
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Der Zielserver ist x86_64 — ein zweiter Arch-Build wäre nur Wartezeit.
+          platforms: linux/amd64
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    # Nur vom Hauptbranch oder auf ausdrückliche Anforderung ausrollen.
+    if: github.ref == 'refs/heads/main' || inputs.deploy
+    concurrency:
+      group: deploy-workmate-01
+      cancel-in-progress: false
+
+    steps:
+      - name: Deploy-Zugang prüfen
+        id: check
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          if [ -z "$KEY" ] || [ -z "$HOST" ]; then
+            echo "Deploy-Secrets fehlen — Schritt wird übersprungen."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: SSH einrichten
+        if: steps.check.outputs.ready == 'true'
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Images ziehen und neu starten
+        if: steps.check.outputs.ready == 'true'
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          DIR: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes "${USER}@${HOST}" \
+            "cd '${DIR}' && \
+             git pull --ff-only && \
+             docker compose -f docker-compose.prod.yml pull && \
+             docker compose -f docker-compose.prod.yml up -d && \
+             docker image prune -f"
+
+      - name: Health prüfen
+        if: steps.check.outputs.ready == 'true'
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          for i in $(seq 1 12); do
+            if ssh -i ~/.ssh/id_deploy -o BatchMode=yes "${USER}@${HOST}" \
+                 "docker exec workmate_live_backend wget -qO- http://localhost:8080/health" \
+                 | grep -q '"status":"ok"'; then
+              echo "Portal ist gesund."
+              exit 0
+            fi
+            echo "Versuch $i — warte…"
+            sleep 5
+          done
+          echo "Portal wurde nach 60s nicht gesund."
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes "${USER}@${HOST}" \
+            "docker logs --tail 50 workmate_live_backend" || true
+          exit 1
