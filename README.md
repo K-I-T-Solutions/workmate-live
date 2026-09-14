@@ -273,6 +273,9 @@ Vollständige Anleitung inklusive DNS, Caddy und Agent-Einrichtung:
 Agent auf Windows, macOS oder Linux einrichten:
 **[docs/agent-install.md](docs/agent-install.md)**
 
+Entwurf für mehrere OBS-Rechner an einem Portal:
+**[docs/multi-agent.md](docs/multi-agent.md)**
+
 ## API-Endpunkte
 
 ### Agent API (`http://127.0.0.1:8787`)
