@@ -1,7 +1,7 @@
 # Multi-Agent: Mehrere OBS-Rechner einzeln steuern
 
-Entwurf, Stand 2026-09-14. Noch nicht umgesetzt — dieses Dokument beschreibt,
-was gebaut werden müsste, in welcher Reihenfolge und was es kostet.
+Stand 2026-09-14. **Stufe 1 und 2 sind umgesetzt**, Stufe 3 und 4 stehen aus.
+Das Dokument beschreibt das Gesamtbild; erledigte Stufen sind markiert.
 
 **Ziel:** Mehrere Rechner mit je eigener OBS-Instanz. Im Portal wird
 ausgewählt, welcher gerade bedient wird. Jeder behält eigene Szenen, Quellen
@@ -85,7 +85,7 @@ Auch das Frontend hält je genau einen Zustand:
    Punkt-zu-Punkt-Verbindungen — die Mehrfachverwaltung ist allein Sache des
    Portals. Kein neues Agent-Release nötig.
 
-## Stufe 1 — Zuordnung reparieren
+## Stufe 1 — Zuordnung reparieren ✅ umgesetzt
 
 Behebt die drei Fehler oben. Sollte unabhängig von der Multi-Agent-Frage
 passieren, weil es echte Bugs sind.
@@ -141,7 +141,7 @@ sobald es soweit ist; danach kann die Doppelung entfallen.
 Klein. Drei Dateien im Backend, ein Feld im Frontend-Typ, Tests für beide
 Event-Pfade (Link und Direktmodus).
 
-## Stufe 2 — Steuerung adressierbar
+## Stufe 2 — Steuerung adressierbar ✅ umgesetzt
 
 ### Routen
 
@@ -332,8 +332,8 @@ Dashboard und der Automation-Editor.
 
 | Stufe | Nutzen | Risiko | Rückwärtskompatibel |
 |---|---|---|---|
-| 1 — Zuordnung | behebt echte Bugs | gering | ja, Frontend liest neue Felder optional |
-| 2 — API | zweiter Rechner steuerbar | gering | ja, alte Routen bleiben |
+| 1 — Zuordnung ✅ | behebt echte Bugs | gering | ja, Frontend liest neue Felder optional |
+| 2 — API ✅ | zweiter Rechner steuerbar | gering | ja, alte Routen bleiben |
 | 3 — Automation | Regeln je Rechner | mittel | ja, `agent` ist optional |
 | 4 — Frontend | bedienbar statt nur API | gering, aber viel Fläche | ja |
 

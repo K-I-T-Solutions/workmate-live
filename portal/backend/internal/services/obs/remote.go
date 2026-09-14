@@ -17,22 +17,44 @@ var ErrNoAgent = fmt.Errorf("no OBS-capable agent connected")
 // über die vom Agent aufgebaute WebSocket-Verbindung geschickt; der Agent führt
 // ihn gegen seine lokale OBS-Instanz aus.
 type RemoteController struct {
-	hub     *agentlink.Hub
+	hub *agentlink.Hub
+	// agentID benennt den angesprochenen Agent. Leer bedeutet: der primäre,
+	// also der aus agent.primary_id oder der erste verbundene mit OBS.
+	agentID string
 	timeout time.Duration
 }
 
-// NewRemoteController creates an OBS controller backed by the agent link.
+// NewRemoteController creates an OBS controller for the primary agent.
 func NewRemoteController(hub *agentlink.Hub, timeout time.Duration) *RemoteController {
+	return NewRemoteControllerFor(hub, "", timeout)
+}
+
+// NewRemoteControllerFor creates an OBS controller for one specific agent.
+// Ein leerer agentID spricht den primären Agent an.
+func NewRemoteControllerFor(hub *agentlink.Hub, agentID string, timeout time.Duration) *RemoteController {
 	if timeout <= 0 {
 		timeout = 10 * time.Second
 	}
 
-	return &RemoteController{hub: hub, timeout: timeout}
+	return &RemoteController{hub: hub, agentID: agentID, timeout: timeout}
+}
+
+// conn löst den zuständigen Agent auf.
+//
+// Die Auflösung passiert bei jedem Aufruf neu und nicht einmalig im
+// Konstruktor: Verbindet sich ein Agent nach einem Abriss erneut, entsteht
+// eine neue Verbindung — ein festgehaltener Zeiger zeigte dann ins Leere.
+func (r *RemoteController) conn() (*agentlink.Conn, bool) {
+	if r.agentID == "" {
+		return r.hub.OBSAgent()
+	}
+
+	return r.hub.Get(r.agentID)
 }
 
 // IsConnected meldet, ob ein Agent verbunden ist, dessen OBS-Verbindung steht.
 func (r *RemoteController) IsConnected() bool {
-	conn, ok := r.hub.OBSAgent()
+	conn, ok := r.conn()
 	if !ok {
 		return false
 	}
@@ -42,7 +64,7 @@ func (r *RemoteController) IsConnected() bool {
 
 // AgentID liefert die Kennung des steuernden Agents, oder "" wenn keiner da ist.
 func (r *RemoteController) AgentID() string {
-	conn, ok := r.hub.OBSAgent()
+	conn, ok := r.conn()
 	if !ok {
 		return ""
 	}
@@ -51,7 +73,7 @@ func (r *RemoteController) AgentID() string {
 
 // call schickt ein Kommando an den zuständigen Agent.
 func (r *RemoteController) call(method string, params interface{}) (json.RawMessage, error) {
-	conn, ok := r.hub.OBSAgent()
+	conn, ok := r.conn()
 	if !ok {
 		return nil, ErrNoAgent
 	}
@@ -92,7 +114,7 @@ func callInto[T any](r *RemoteController, method string, params interface{}) (T,
 
 // GetStatus returns the overall OBS status as reported by the agent
 func (r *RemoteController) GetStatus() (*OBSStatus, error) {
-	if _, ok := r.hub.OBSAgent(); !ok {
+	if _, ok := r.conn(); !ok {
 		// Kein Agent verbunden ist ein normaler Betriebszustand, kein Fehler —
 		// die UI soll "nicht verbunden" anzeigen können.
 		return &OBSStatus{Connected: false}, nil

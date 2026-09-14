@@ -144,9 +144,17 @@ func main() {
 	}
 
 	// OBS-Steuerung: direkt zum OBS-WebSocket oder über einen Agent.
-	var obsController obs.Controller
+	//
+	// obsResolver bestimmt je Anfrage die angesprochene Instanz, obsController
+	// ist die für die Automation-Engine — dort gilt bis Stufe 3 der primäre
+	// Agent.
+	var (
+		obsResolver   obs.Resolver
+		obsController obs.Controller
+	)
 	switch cfg.OBS.Mode {
 	case config.OBSModeAgent:
+		obsResolver = obs.NewLinkResolver(linkHub, cfg.Agent.CommandTimeout)
 		obsController = obs.NewRemoteController(linkHub, cfg.Agent.CommandTimeout)
 		log.Println("OBS control routed through agent link")
 
@@ -159,6 +167,7 @@ func main() {
 		})
 		go obsDirect.Run(ctx)
 		obsController = obsDirect
+		obsResolver = obs.NewDirectResolver(obsDirect, websocket.LocalAgentID)
 		log.Printf("OBS control connecting directly to %s:%d", cfg.OBS.Host, cfg.OBS.Port)
 	}
 
@@ -250,7 +259,7 @@ func main() {
 		Auth:       handlers.NewAuthHandler(userStore, jwtService),
 		Agent:      handlers.NewAgentHandler(agentClient, statusCache, linkHub),
 		WebSocket:  handlers.NewWebSocketHandler(hub),
-		OBS:        handlers.NewOBSHandler(obsController),
+		OBS:        handlers.NewOBSHandler(obsResolver),
 		Twitch:     handlers.NewTwitchHandler(twitchClient),
 		YouTube:    handlers.NewYouTubeHandler(youtubeClient),
 		Config:     handlers.NewConfigHandler(cfg, userStore),

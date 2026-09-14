@@ -87,18 +87,11 @@ func Routes(h *Handlers, jwtService *auth.JWTService) http.Handler {
 			// Über den Link verbundene Agents
 			r.Get("/agents", h.Agent.ListAgents)
 
-			// OBS control endpoints
-			r.Get("/obs/status", h.OBS.GetStatus)
-			r.Get("/obs/scenes", h.OBS.GetScenes)
-			r.Post("/obs/scenes/switch", h.OBS.SwitchScene)
-			r.Get("/obs/sources", h.OBS.GetSources)
-			r.Post("/obs/sources/toggle", h.OBS.ToggleSource)
-			r.Post("/obs/streaming/start", h.OBS.StartStreaming)
-			r.Post("/obs/streaming/stop", h.OBS.StopStreaming)
-			r.Post("/obs/recording/start", h.OBS.StartRecording)
-			r.Post("/obs/recording/stop", h.OBS.StopRecording)
-			r.Post("/obs/recording/pause", h.OBS.PauseRecording)
-			r.Post("/obs/recording/resume", h.OBS.ResumeRecording)
+			// OBS-Steuerung. Die Routen gibt es zweimal: mit Agent-Kennung
+			// unter /agents/{agent}/obs/... und ohne unter /obs/..., wo
+			// dann der primäre Agent angesprochen wird.
+			r.Route("/agents/{agent}/obs", func(r chi.Router) { obsRoutes(r, h.OBS) })
+			r.Route("/obs", func(r chi.Router) { obsRoutes(r, h.OBS) })
 
 			// Twitch endpoints
 			r.Get("/twitch/status", h.Twitch.GetStatus)
@@ -144,4 +137,21 @@ func Routes(h *Handlers, jwtService *auth.JWTService) http.Handler {
 	}
 
 	return r
+}
+
+// obsRoutes hängt die OBS-Endpunkte an einen Router. Beide Aufrufer teilen
+// sich dieselben Handler; welcher Agent gemeint ist, liest der Handler aus
+// dem Routenparameter {agent} — fehlt er, gilt der primäre.
+func obsRoutes(r chi.Router, h *handlers.OBSHandler) {
+	r.Get("/status", h.GetStatus)
+	r.Get("/scenes", h.GetScenes)
+	r.Post("/scenes/switch", h.SwitchScene)
+	r.Get("/sources", h.GetSources)
+	r.Post("/sources/toggle", h.ToggleSource)
+	r.Post("/streaming/start", h.StartStreaming)
+	r.Post("/streaming/stop", h.StopStreaming)
+	r.Post("/recording/start", h.StartRecording)
+	r.Post("/recording/stop", h.StopRecording)
+	r.Post("/recording/pause", h.PauseRecording)
+	r.Post("/recording/resume", h.ResumeRecording)
 }
