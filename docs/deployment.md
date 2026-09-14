@@ -64,7 +64,7 @@ Die Zone `kit-it-koblenz.de` liegt bei Cloudflare (`athena`/`harvey.ns.cloudflar
 Alle bestehenden Subdomains zeigen **direkt** auf die Server-IP, laufen also
 ohne Cloudflare-Proxy (graue Wolke).
 
-Neuen Eintrag genauso anlegen:
+Der Eintrag:
 
 | Feld | Wert |
 |---|---|
@@ -74,10 +74,42 @@ Neuen Eintrag genauso anlegen:
 | Proxy status | **DNS only** (graue Wolke) |
 | TTL | Auto |
 
+Per API anlegen (Token in `~/.credentials/.cloudflare`, kann Zonen und DNS
+lesen und schreiben):
+
+```bash
+set -a; . ~/.credentials/.cloudflare; set +a
+
+ZID=$(curl -s "https://api.cloudflare.com/client/v4/zones?name=kit-it-koblenz.de" \
+  -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq -r '.result[0].id')
+
+curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$ZID/dns_records" \
+  -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  --data '{"type":"A","name":"live.workmate.kit-it-koblenz.de",
+           "content":"77.42.17.200","proxied":false,"ttl":1}' | jq '.success'
+```
+
 Prüfen:
 
 ```bash
 dig +short A live.workmate.kit-it-koblenz.de   # erwartet: 77.42.17.200
+```
+
+### Reihenfolge beachten
+
+**Erst den DNS-Eintrag anlegen, dann Caddy neu laden.** Lädt Caddy die neue
+Domain, bevor der Eintrag existiert, scheitert die ACME-Prüfung mit `NXDOMAIN`
+— und Let's Encrypt cacht diese negative Antwort. Die Zone hat eine
+SOA-Minimum-TTL von 1800 s, das Zertifikat kommt dann also bis zu 30 Minuten
+später als nötig. Caddy versucht es von selbst weiter, es geht nichts kaputt;
+es dauert nur.
+
+Fortschritt verfolgen:
+
+```bash
+ssh workmate-01 'docker logs --tail 200 workmate_caddy 2>&1 \
+  | grep -i "live.workmate" | grep -vi stacktrace | tail -5'
 ```
 
 ### Warum DNS only statt Proxy
