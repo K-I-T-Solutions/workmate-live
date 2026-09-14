@@ -168,7 +168,14 @@ func (h *ConfigHandler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 	*h.cfg = updated
 
 	if err := h.cfg.Save(); err != nil {
-		http.Error(w, fmt.Sprintf("Failed to save config: %v", err), http.StatusInternalServerError)
+		// Das Passwort steht zu diesem Zeitpunkt bereits in der Datenbank und
+		// gilt fuer die Anmeldung. Das muss die Meldung sagen, sonst haelt der
+		// Aufrufer die Aenderung faelschlich fuer fehlgeschlagen.
+		msg := fmt.Sprintf("Failed to save config: %v", err)
+		if newPassword != "" {
+			msg += " — the new password is already active for login, but could not be written to the configuration file"
+		}
+		http.Error(w, msg, http.StatusInternalServerError)
 		return
 	}
 

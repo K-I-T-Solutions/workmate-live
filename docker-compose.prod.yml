@@ -15,7 +15,8 @@ services:
     container_name: workmate_live_backend
     volumes:
       - backend_data:/app/data
-      - ./portal/backend/config/portal.docker.yaml:/app/config/portal.yaml:ro
+      # Nicht :ro — die Einstellungen-Seite schreibt die Konfiguration zurück.
+      - ./portal/backend/config/portal.docker.yaml:/app/config/portal.yaml
       - ./portal/backend/config/rules.yaml:/app/config/rules.yaml
     networks:
       - core_network
