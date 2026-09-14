@@ -1,5 +1,19 @@
 # Workmate Live Agent Configuration
-# Copy this file to config.yaml and adjust as needed
+# Copy this file to config.yaml and adjust as needed.
+#
+# The agent runs on Linux, Windows and macOS. The configuration is identical
+# on all three; only where the file is looked up differs:
+#
+#   all           ./config.yaml
+#   Linux         ~/.config/workmate-agent/config.yaml
+#                 /etc/workmate-agent/config.yaml
+#   macOS         ~/Library/Application Support/workmate-agent/config.yaml
+#                 ~/.config/workmate-agent/config.yaml
+#                 /etc/workmate-agent/config.yaml
+#   Windows       %AppData%\workmate-agent\config.yaml
+#                 %USERPROFILE%\.config\workmate-agent\config.yaml
+#
+# Or pass it explicitly:  workmate-live-agent --config <path>
 
 # Server configuration
 server:
@@ -25,13 +39,24 @@ health:
   # How often to poll system status
   polling_interval: 2s
 
-  # Enable/disable individual system checks
-  # Disabled checks will return empty/zero values
+  # Enable/disable individual system checks.
+  # Disabled checks will return empty/zero values.
+  # Each check uses whatever the platform provides:
+  #
+  #             Linux                Windows              macOS
+  #   gpu       /dev/dri, sysfs      registry             system_profiler
+  #   audio     PipeWire socket      WASAPI endpoints     coreaudiod
+  #   video     /dev/video*          registry             system_profiler
+  #   obs       /proc                process list         pgrep
+  #
+  # On macOS the gpu and video checks shell out to system_profiler, which
+  # takes about a second. Their result is therefore read once at startup —
+  # a camera plugged in later shows up after a restart of the agent.
   checks:
-    gpu: true     # Detect GPU via /dev/dri
-    audio: true   # Check PipeWire status
-    video: true   # Scan /dev/video* devices
-    obs: true     # Detect OBS process
+    gpu: true
+    audio: true
+    video: true
+    obs: true
 
 # OBS remote control
 # Enable this on the machine where OBS runs. The agent connects to the local

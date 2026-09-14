@@ -25,7 +25,10 @@ export interface OBSStatus {
 export interface GPUStatus {
   present: boolean
   vendors?: string[]
+  /** DRM-Render-Nodes — nur unter Linux gesetzt. */
   render_nodes?: string[]
+  /** Namen der Grafikadapter — unter Windows und macOS gesetzt. */
+  adapters?: string[]
 }
 
 export interface Capabilities {

@@ -1,0 +1,122 @@
+name: Agent Binaries
+
+# Baut den Agent für Linux, Windows und macOS. Bei einem Tag v* werden die
+# Archive zusätzlich an ein GitHub-Release gehängt.
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths:
+      - 'agent/**'
+      - '.github/workflows/agent-release.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: agent/go.mod
+          cache-dependency-path: agent/go.sum
+
+      - name: Tests
+        working-directory: agent
+        run: go test ./... -race -count=1
+
+      # Der plattformspezifische Code lässt sich nur auf der jeweiligen
+      # Plattform ausführen — prüfen, dass er überall zumindest übersetzt.
+      - name: vet je Zielplattform
+        working-directory: agent
+        run: |
+          for os in linux windows darwin; do
+            echo "── $os"
+            GOOS=$os go vet ./...
+          done
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+          - goos: windows
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64   # Intel-Macs
+          - goos: darwin
+            goarch: arm64   # Apple Silicon
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # für git describe
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: agent/go.mod
+          cache-dependency-path: agent/go.sum
+
+      - name: Bauen
+        working-directory: agent
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
+        run: |
+          VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo dev)
+          NAME=workmate-live-agent
+          [ "$GOOS" = "windows" ] && NAME="$NAME.exe"
+
+          mkdir -p dist
+          go build -trimpath \
+            -ldflags "-s -w \
+              -X kit.workmate/live-agent/internal/buildinfo.Version=$VERSION \
+              -X kit.workmate/live-agent/internal/buildinfo.Commit=${GITHUB_SHA::7} \
+              -X kit.workmate/live-agent/internal/buildinfo.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            -o "dist/$NAME" ./cmd/workmate-live-agent
+
+          echo "Gebaut:"; ls -la dist/
+
+      - name: Archiv packen
+        working-directory: agent
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          STEM="workmate-live-agent_${GOOS}_${GOARCH}"
+          cp config.example.yaml dist/
+          cp ../README.md dist/ 2>/dev/null || true
+
+          cd dist
+          if [ "$GOOS" = "windows" ]; then
+            zip -q "../$STEM.zip" workmate-live-agent.exe config.example.yaml
+            echo "ARTIFACT=agent/$STEM.zip" >> "$GITHUB_ENV"
+          else
+            tar -czf "../$STEM.tar.gz" workmate-live-agent config.example.yaml
+            echo "ARTIFACT=agent/$STEM.tar.gz" >> "$GITHUB_ENV"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: workmate-live-agent_${{ matrix.goos }}_${{ matrix.goarch }}
+          path: ${{ env.ARTIFACT }}
+          retention-days: 30
+
+      - name: An das Release hängen
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ARTIFACT }}

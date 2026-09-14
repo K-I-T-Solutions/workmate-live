@@ -5,6 +5,11 @@ import (
 	"path/filepath"
 )
 
+// Probe ermittelt den aktuellen Audio-Status.
+func Probe() Status {
+	return probePipeWire()
+}
+
 // probePipeWire prüft, ob PipeWire aktiv ist.
 // Wir prüfen das PipeWire-Socket im XDG_RUNTIME_DIR.
 func probePipeWire() Status {

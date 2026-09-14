@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -113,12 +114,26 @@ func Load(path string) (*Config, error) {
 	return cfg, nil
 }
 
-// findConfigFile searches for config in standard locations
+// findConfigFile searches for config in standard locations.
+//
+// Die Suche ist plattformabhängig: os.UserConfigDir liefert unter Linux
+// ~/.config, unter macOS ~/Library/Application Support und unter Windows
+// %AppData%. Der Unix-Pfad wird zusätzlich geprüft, weil ~/.config auch auf
+// macOS gebräuchlich ist. /etc entfällt unter Windows — dort gibt es keinen
+// entsprechenden Ort, und $HOME ist häufig gar nicht gesetzt.
 func findConfigFile() string {
-	locations := []string{
-		"./config.yaml",
-		filepath.Join(os.Getenv("HOME"), ".config", "workmate-agent", "config.yaml"),
-		"/etc/workmate-agent/config.yaml",
+	locations := []string{"./config.yaml"}
+
+	if dir, err := os.UserConfigDir(); err == nil && dir != "" {
+		locations = append(locations, filepath.Join(dir, "workmate-agent", "config.yaml"))
+	}
+
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		locations = append(locations, filepath.Join(home, ".config", "workmate-agent", "config.yaml"))
+	}
+
+	if runtime.GOOS != "windows" {
+		locations = append(locations, "/etc/workmate-agent/config.yaml")
 	}
 
 	for _, loc := range locations {

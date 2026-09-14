@@ -30,6 +30,7 @@ workmate_live/
 ## Features
 
 ### Agent
+- **Plattformunabhängig**: Linux, Windows und macOS (amd64 und arm64)
 - **System-Monitoring**
   - GPU-Erkennung via `/dev/dri`
   - Audio-System-Status (PipeWire)
@@ -268,6 +269,9 @@ docker compose -f docker-compose.prod.yml up -d
 
 Vollständige Anleitung inklusive DNS, Caddy und Agent-Einrichtung:
 **[docs/deployment.md](docs/deployment.md)**
+
+Agent auf Windows, macOS oder Linux einrichten:
+**[docs/agent-install.md](docs/agent-install.md)**
 
 ## API-Endpunkte
 

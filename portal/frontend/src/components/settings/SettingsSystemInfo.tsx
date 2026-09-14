@@ -26,6 +26,11 @@ export function SettingsSystemInfo() {
     { label: 'Last Update', value: new Date(status.timestamp).toLocaleString() },
   ]
 
+  // Linux meldet Render-Nodes, Windows und macOS die Adapternamen.
+  if (status.gpu.adapters && status.gpu.adapters.length > 0) {
+    items.push({ label: 'Grafikadapter', value: status.gpu.adapters.join(', ') })
+  }
+
   if (status.gpu.render_nodes && status.gpu.render_nodes.length > 0) {
     items.push({ label: 'Render Nodes', value: status.gpu.render_nodes.join(', ') })
   }
