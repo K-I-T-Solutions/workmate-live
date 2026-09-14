@@ -41,6 +41,11 @@ export interface OBSStatus {
 
 export interface OBSEvent {
   type: string
+  /**
+   * Rechner, von dem das Ereignis stammt. "local" bei direkter
+   * OBS-Verbindung des Portals (obs.mode: direct).
+   */
+  agent_id?: string
   scene_name?: string
   source_name?: string
   active?: boolean

@@ -66,3 +66,15 @@ type CPUInfo struct {
 type MemoryInfo struct {
 	TotalMB int `json:"total_mb"`
 }
+
+// StatusMessage ist der Status eines Agents samt seiner Kennung, wie er an
+// die Browser-Clients geht.
+//
+// Status ist eingebettet, damit dessen Felder unverändert flach im JSON
+// landen: bestehende Empfänger lesen weiter wie bisher, agent_id kommt
+// lediglich dazu. Ohne die Kennung sind mehrere Agents nicht unterscheidbar —
+// ihre Meldungen überschreiben sich sonst gegenseitig.
+type StatusMessage struct {
+	*Status
+	AgentID string `json:"agent_id"`
+}

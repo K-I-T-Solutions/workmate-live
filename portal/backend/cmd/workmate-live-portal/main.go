@@ -65,25 +65,17 @@ func main() {
 	// handleOBSEvent verteilt ein OBS-Event an Browser-Clients und die
 	// Automation-Engine — unabhängig davon, ob es aus der direkten
 	// OBS-Verbindung oder von einem Agent stammt.
-	handleOBSEvent := func(event map[string]interface{}) {
+	//
+	// agentID benennt die Herkunft. Ohne sie sind bei mehreren verbundenen
+	// Agents weder Anzeige noch Regeln dem richtigen Rechner zuzuordnen.
+	handleOBSEvent := func(agentID string, event map[string]interface{}) {
 		hub.Broadcast(websocket.Message{
 			Type: websocket.MessageTypeOBSEvent,
-			Data: event,
+			Data: websocket.WithAgentID(agentID, event),
 		})
 
-		switch event["type"] {
-		case "scene_changed":
-			scene, _ := event["scene_name"].(string)
-			autoEngine.Send(automation.Event{
-				Type: "obs:scene_changed",
-				Vars: map[string]string{"scene": scene},
-			})
-		case "stream_state_changed":
-			if active, _ := event["active"].(bool); active {
-				autoEngine.Send(automation.Event{Type: "obs:stream_started", Vars: map[string]string{}})
-			} else {
-				autoEngine.Send(automation.Event{Type: "obs:stream_stopped", Vars: map[string]string{}})
-			}
+		if ev, ok := automation.FromOBSEvent(agentID, event); ok {
+			autoEngine.Send(ev)
 		}
 	}
 
@@ -109,7 +101,7 @@ func main() {
 				statusCache.Set(agentID, &status)
 				hub.Broadcast(websocket.Message{
 					Type: websocket.MessageTypeAgentStatus,
-					Data: &status,
+					Data: agent.StatusMessage{Status: &status, AgentID: agentID},
 				})
 
 			case agentlink.EventOBS:
@@ -118,7 +110,7 @@ func main() {
 					log.Printf("Invalid OBS event from %s: %v", agentID, err)
 					return
 				}
-				handleOBSEvent(obsEvent)
+				handleOBSEvent(agentID, obsEvent)
 			}
 		})
 
@@ -132,10 +124,18 @@ func main() {
 	var agentClient *agent.Client
 	if cfg.Agent.URL != "" {
 		agentClient = agent.NewClient(cfg.Agent.URL, cfg.Agent.Timeout)
+		// Der gepollte Agent ist über die URL adressiert und meldet seine
+		// Kennung nicht selbst — hier steht die konfigurierte, ersatzweise
+		// die des lokalen Betriebs.
+		polledID := cfg.Agent.PrimaryID
+		if polledID == "" {
+			polledID = websocket.LocalAgentID
+		}
+
 		poller = agent.NewPoller(agentClient, cfg.Agent.PollingInterval, func(status *agent.Status) {
 			hub.Broadcast(websocket.Message{
 				Type: websocket.MessageTypeAgentStatus,
-				Data: status,
+				Data: agent.StatusMessage{Status: status, AgentID: polledID},
 			})
 		})
 		poller.Start()
@@ -152,7 +152,11 @@ func main() {
 
 	default:
 		obsDirect := obs.NewClient(cfg.OBS.Host, cfg.OBS.Port, cfg.OBS.Password, cfg.OBS.ReconnectDelay)
-		obsDirect.SetEventCallback(handleOBSEvent)
+		// Im Direktmodus gibt es keinen Agent — die Ereignisse werden als
+		// lokal gekennzeichnet.
+		obsDirect.SetEventCallback(func(event map[string]interface{}) {
+			handleOBSEvent(websocket.LocalAgentID, event)
+		})
 		go obsDirect.Run(ctx)
 		obsController = obsDirect
 		log.Printf("OBS control connecting directly to %s:%d", cfg.OBS.Host, cfg.OBS.Port)

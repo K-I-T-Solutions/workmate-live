@@ -1,4 +1,9 @@
 export interface AgentStatus {
+  /**
+   * Kennung des meldenden Agents. Ohne sie lassen sich mehrere Agents
+   * nicht auseinanderhalten — ihre Meldungen überschreiben sich sonst.
+   */
+  agent_id?: string
   timestamp: string
   hostname: string
   headless: boolean
