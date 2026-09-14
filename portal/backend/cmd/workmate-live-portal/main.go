@@ -249,7 +249,7 @@ func main() {
 		OBS:        handlers.NewOBSHandler(obsController),
 		Twitch:     handlers.NewTwitchHandler(twitchClient),
 		YouTube:    handlers.NewYouTubeHandler(youtubeClient),
-		Config:     handlers.NewConfigHandler(cfg),
+		Config:     handlers.NewConfigHandler(cfg, userStore),
 		Restart:    handlers.NewRestartHandler(),
 		Automation: handlers.NewAutomationHandler(autoStore, autoEngine),
 		AgentLink:  linkHandler,

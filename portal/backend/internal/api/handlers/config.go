@@ -3,20 +3,32 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"sync"
 
 	"kit.workmate/live-portal/internal/config"
+	"kit.workmate/live-portal/internal/storage"
 )
 
-type ConfigHandler struct {
-	cfg *config.Config
-	mu  sync.Mutex
+// passwordStore ist der Teil des UserStore, den dieser Handler braucht.
+// Das Anmeldepasswort steht in der Datenbank, nicht in der Konfiguration —
+// eine Änderung muss deshalb an beiden Stellen ankommen.
+type passwordStore interface {
+	GetByUsername(username string) (*storage.User, error)
+	UpdatePassword(userID int, newPassword string) error
 }
 
-func NewConfigHandler(cfg *config.Config) *ConfigHandler {
+type ConfigHandler struct {
+	cfg   *config.Config
+	users passwordStore
+	mu    sync.Mutex
+}
+
+func NewConfigHandler(cfg *config.Config, users passwordStore) *ConfigHandler {
 	return &ConfigHandler{
-		cfg: cfg,
+		cfg:   cfg,
+		users: users,
 	}
 }
 
@@ -54,6 +66,9 @@ func (h *ConfigHandler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 	// laufende Instanz nicht mit ungueltigen Werten zurueckbleiben.
 	// Config enthaelt ausschliesslich Wertetypen, eine flache Kopie genuegt.
 	updated := *h.cfg
+
+	// Wird gesetzt, wenn die auth-Sektion ein neues Anmeldepasswort bringt.
+	var newPassword string
 
 	switch req.Section {
 	case "obs":
@@ -109,6 +124,10 @@ func (h *ConfigHandler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 		// Preserve existing password if masked value sent
 		if data.DefaultUser.Password == maskedSecret {
 			data.DefaultUser.Password = h.cfg.Auth.DefaultUser.Password
+		} else if data.DefaultUser.Password != h.cfg.Auth.DefaultUser.Password {
+			// Ein neues Passwort muss in der Datenbank landen, sonst gilt
+			// beim Anmelden weiter das alte.
+			newPassword = data.DefaultUser.Password
 		}
 		updated.Auth.DefaultUser = data.DefaultUser
 
@@ -137,6 +156,15 @@ func (h *ConfigHandler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Das Passwort zuerst: schlaegt es fehl, bleibt die alte Konfiguration
+	// stehen und Anmeldedaten und Datei driften nicht auseinander.
+	if newPassword != "" {
+		if err := h.setPassword(updated.Auth.DefaultUser.Username, newPassword); err != nil {
+			http.Error(w, fmt.Sprintf("Failed to update password: %v", err), http.StatusInternalServerError)
+			return
+		}
+	}
+
 	*h.cfg = updated
 
 	if err := h.cfg.Save(); err != nil {
@@ -146,4 +174,23 @@ func (h *ConfigHandler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+// setPassword schreibt das neue Anmeldepasswort in die Benutzerdatenbank.
+func (h *ConfigHandler) setPassword(username, password string) error {
+	if h.users == nil {
+		return fmt.Errorf("no user store configured")
+	}
+
+	user, err := h.users.GetByUsername(username)
+	if err != nil {
+		return fmt.Errorf("user %q not found: %w", username, err)
+	}
+
+	if err := h.users.UpdatePassword(user.ID, password); err != nil {
+		return err
+	}
+
+	log.Printf("Password updated for user %s", username)
+	return nil
 }

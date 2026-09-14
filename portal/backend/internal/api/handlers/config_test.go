@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"testing"
 
 	"kit.workmate/live-portal/internal/config"
+	"kit.workmate/live-portal/internal/storage"
 )
 
 // newTestConfig liefert eine gültige Konfiguration, die in eine temporäre
@@ -28,6 +30,34 @@ func newTestConfig(t *testing.T) *config.Config {
 	}
 
 	return cfg
+}
+
+// fakeUsers ersetzt die Benutzerdatenbank im Test.
+type fakeUsers struct {
+	user      *storage.User
+	setFor    int
+	setTo     string
+	failFind  bool
+	failWrite bool
+}
+
+func (f *fakeUsers) GetByUsername(username string) (*storage.User, error) {
+	if f.failFind || f.user == nil || f.user.Username != username {
+		return nil, fmt.Errorf("no such user: %s", username)
+	}
+	return f.user, nil
+}
+
+func (f *fakeUsers) UpdatePassword(userID int, newPassword string) error {
+	if f.failWrite {
+		return fmt.Errorf("database is read-only")
+	}
+	f.setFor, f.setTo = userID, newPassword
+	return nil
+}
+
+func newUsers() *fakeUsers {
+	return &fakeUsers{user: &storage.User{ID: 7, Username: "admin"}}
 }
 
 // patch schickt eine Sektion an UpdateConfig.
@@ -74,7 +104,7 @@ func getConfig(t *testing.T, h *ConfigHandler) config.Config {
 func TestMaskedAgentKeySurvivesRoundTrip(t *testing.T) {
 	cfg := newTestConfig(t)
 	cfg.Agent.APIKey = "real-agent-key"
-	h := NewConfigHandler(cfg)
+	h := NewConfigHandler(cfg, newUsers())
 
 	safe := getConfig(t, h)
 	if safe.Agent.APIKey != "***" {
@@ -94,7 +124,7 @@ func TestMaskedAgentKeySurvivesRoundTrip(t *testing.T) {
 func TestMaskedOBSPasswordSurvivesRoundTrip(t *testing.T) {
 	cfg := newTestConfig(t)
 	cfg.OBS.Password = "real-obs-password"
-	h := NewConfigHandler(cfg)
+	h := NewConfigHandler(cfg, newUsers())
 
 	safe := getConfig(t, h)
 	if safe.OBS.Password != "***" {
@@ -113,7 +143,7 @@ func TestMaskedOBSPasswordSurvivesRoundTrip(t *testing.T) {
 func TestNewSecretsAreStored(t *testing.T) {
 	cfg := newTestConfig(t)
 	cfg.Agent.APIKey = "old-key"
-	h := NewConfigHandler(cfg)
+	h := NewConfigHandler(cfg, newUsers())
 
 	updated := cfg.Agent
 	updated.APIKey = "brand-new-key"
@@ -130,7 +160,7 @@ func TestNewSecretsAreStored(t *testing.T) {
 func TestSwitchingToAgentModeIsStored(t *testing.T) {
 	cfg := newTestConfig(t)
 	cfg.Agent.APIKey = "shared-secret"
-	h := NewConfigHandler(cfg)
+	h := NewConfigHandler(cfg, newUsers())
 
 	updated := cfg.OBS
 	updated.Mode = config.OBSModeAgent
@@ -149,7 +179,7 @@ func TestSwitchingToAgentModeIsStored(t *testing.T) {
 func TestAgentModeWithoutKeyIsRejected(t *testing.T) {
 	cfg := newTestConfig(t)
 	cfg.Agent.APIKey = ""
-	h := NewConfigHandler(cfg)
+	h := NewConfigHandler(cfg, newUsers())
 
 	updated := cfg.OBS
 	updated.Mode = config.OBSModeAgent
@@ -166,12 +196,115 @@ func TestAgentModeWithoutKeyIsRejected(t *testing.T) {
 
 func TestInvalidModeIsRejected(t *testing.T) {
 	cfg := newTestConfig(t)
-	h := NewConfigHandler(cfg)
+	h := NewConfigHandler(cfg, newUsers())
 
 	updated := cfg.OBS
 	updated.Mode = "telepathy"
 
 	if rec := patch(t, h, "obs", updated); rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400", rec.Code)
+	}
+}
+
+// Das Anmeldepasswort steht in der Datenbank. Wird es in den Einstellungen
+// geändert, muss es dort ankommen — sonst gilt beim Login weiter das alte.
+func TestPasswordChangeReachesTheDatabase(t *testing.T) {
+	cfg := newTestConfig(t)
+	cfg.Auth.DefaultUser.Username = "admin"
+	cfg.Auth.DefaultUser.Password = "altes-passwort"
+
+	users := newUsers()
+	h := NewConfigHandler(cfg, users)
+
+	body := map[string]interface{}{
+		"default_user": map[string]string{"username": "admin", "password": "neues-passwort"},
+	}
+	if rec := patch(t, h, "auth", body); rec.Code != http.StatusOK {
+		t.Fatalf("update failed: %d %s", rec.Code, rec.Body)
+	}
+
+	if users.setTo != "neues-passwort" {
+		t.Errorf("database got %q, want %q", users.setTo, "neues-passwort")
+	}
+	if users.setFor != 7 {
+		t.Errorf("updated user id %d, want 7", users.setFor)
+	}
+	if cfg.Auth.DefaultUser.Password != "neues-passwort" {
+		t.Errorf("config password = %q, want it updated too", cfg.Auth.DefaultUser.Password)
+	}
+}
+
+// Speichert die UI die Sektion unverändert, kommt der Platzhalter zurück —
+// das ist keine Passwortänderung und darf die Datenbank nicht anfassen.
+func TestMaskedPasswordDoesNotTouchTheDatabase(t *testing.T) {
+	cfg := newTestConfig(t)
+	cfg.Auth.DefaultUser.Username = "admin"
+	cfg.Auth.DefaultUser.Password = "echtes-passwort"
+
+	users := newUsers()
+	h := NewConfigHandler(cfg, users)
+
+	safe := getConfig(t, h)
+	if safe.Auth.DefaultUser.Password != "***" {
+		t.Fatalf("GetConfig returned %q, want it masked", safe.Auth.DefaultUser.Password)
+	}
+
+	body := map[string]interface{}{
+		"default_user": map[string]string{
+			"username": safe.Auth.DefaultUser.Username,
+			"password": safe.Auth.DefaultUser.Password,
+		},
+	}
+	if rec := patch(t, h, "auth", body); rec.Code != http.StatusOK {
+		t.Fatalf("update failed: %d %s", rec.Code, rec.Body)
+	}
+
+	if users.setTo != "" {
+		t.Errorf("database was written with %q, want no write at all", users.setTo)
+	}
+	if cfg.Auth.DefaultUser.Password != "echtes-passwort" {
+		t.Errorf("config password = %q, want the original preserved", cfg.Auth.DefaultUser.Password)
+	}
+}
+
+// Schlägt der Datenbankschreibvorgang fehl, darf die Konfiguration nicht
+// still auf ein Passwort umgestellt werden, mit dem niemand sich anmelden kann.
+func TestFailedPasswordWriteLeavesConfigUntouched(t *testing.T) {
+	cfg := newTestConfig(t)
+	cfg.Auth.DefaultUser.Username = "admin"
+	cfg.Auth.DefaultUser.Password = "altes-passwort"
+
+	users := newUsers()
+	users.failWrite = true
+	h := NewConfigHandler(cfg, users)
+
+	body := map[string]interface{}{
+		"default_user": map[string]string{"username": "admin", "password": "neues-passwort"},
+	}
+	rec := patch(t, h, "auth", body)
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500", rec.Code)
+	}
+
+	if cfg.Auth.DefaultUser.Password != "altes-passwort" {
+		t.Errorf("config password = %q, want the old one to survive", cfg.Auth.DefaultUser.Password)
+	}
+}
+
+// Passt der Benutzername zu keinem Konto, muss das auffallen.
+func TestPasswordChangeForUnknownUserFails(t *testing.T) {
+	cfg := newTestConfig(t)
+	cfg.Auth.DefaultUser.Username = "admin"
+	cfg.Auth.DefaultUser.Password = "altes-passwort"
+
+	users := newUsers()
+	users.failFind = true
+	h := NewConfigHandler(cfg, users)
+
+	body := map[string]interface{}{
+		"default_user": map[string]string{"username": "admin", "password": "neues-passwort"},
+	}
+	if rec := patch(t, h, "auth", body); rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500", rec.Code)
 	}
 }
